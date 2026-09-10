@@ -1,0 +1,63 @@
+{
+  "taskId": "FT-13",
+  "baseline": {
+    "gitCommit": "e6ef1379b86bd9647bec33af8f83c658747fab8b",
+    "siteVersion": 19,
+    "projectRevision": 23
+  },
+  "plannedFiles": [
+    "app/approvals.ts",
+    "app/model.ts",
+    "app/task-contract.ts",
+    "app/task-fields.tsx",
+    "app/task-pack.ts",
+    "tests/change-control.test.mjs",
+    "tests/task-pack.test.mjs"
+  ],
+  "dependencies": [
+    "Project -> Item -> TaskContract",
+    "TaskContract -> save API -> D1 current record and revisions",
+    "TaskContract -> task pack -> AI handoff",
+    "Change control completeness -> implementation and completion approval"
+  ],
+  "protectedAreas": [
+    "Other projects and other owners",
+    "Existing project IDs, item IDs, bodies, statuses and approvals",
+    "D1 revision history and pending proposals",
+    "R2 imported originals and revision snapshots",
+    "Legacy imported-project compatibility"
+  ],
+  "actualFiles": [
+    "app/approvals.ts",
+    "app/change-control.ts",
+    "app/import-project.ts",
+    "app/model.ts",
+    "app/task-contract.ts",
+    "app/task-fields.tsx",
+    "app/task-pack.ts",
+    "change-records/FT-13.json",
+    "tests/change-control.test.mjs",
+    "tests/change-scope.test.mjs",
+    "tests/task-pack.test.mjs",
+    "tsconfig.tsbuildinfo"
+  ],
+  "deviations": {
+    "app/change-control.ts": "循環を避けて検証規則を独立させるため追加",
+    "app/import-project.ts": "旧取込案件を自動的な必須化から保護するため追加",
+    "change-records/FT-13.json": "計画と実差分を機械照合する正本として追加",
+    "tests/change-scope.test.mjs": "Git差分と台帳の一致を自動検査するため追加",
+    "tsconfig.tsbuildinfo": "型検査が更新する追跡済み成果物"
+  },
+  "verificationPlan": [
+    "Every changed file since the baseline is declared in actualFiles",
+    "Every unplanned file has a recorded deviation reason",
+    "New projects enforce complete plans and completion evidence",
+    "Imported and existing projects retain compatibility until explicitly governed",
+    "Owner isolation, history, proposal, backup, import and task-pack tests remain green"
+  ],
+  "verificationEvidence": [
+    "npm test: 51/51 PASS",
+    "npx tsc --noEmit: PASS"
+  ],
+  "rollbackPlan": "Redeploy Site version 19 and retain D1/R2 data. Revert only the FT-13 source commit; no database migration or destructive data rewrite is used."
+}

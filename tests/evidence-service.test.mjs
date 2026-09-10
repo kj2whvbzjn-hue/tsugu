@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {build} from 'esbuild';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+async function load(file){const b=await build({entryPoints:[file],bundle:true,platform:'node',format:'esm',write:false});return import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));}
+const svc=await load('app/evidence-service.ts');
+function setup(){const sql=new DatabaseSync(':memory:');for(const name of ['0000_tiny_living_tribunal','0001_smooth_shotgun','0002_redundant_hiroim','0003_overjoyed_exiles','0004_blue_yellowjacket','0005_evidence_core'])sql.exec(readFileSync('drizzle/'+name+'.sql','utf8').replaceAll('--> statement-breakpoint',''));let failPut=0,failFinal=0;const files=new Map();const db={prepare(query){return {bind(...args){return {query,args,async first(){return sql.prepare(query).get(...args)??null},async all(){return {results:sql.prepare(query).all(...args)}},async run(){const r=sql.prepare(query).run(...args);return {meta:{changes:Number(r.changes)}}}}}}},async batch(statements){if(failFinal&&statements.some(s=>String(s.query).includes("UPDATE evidence_versions SET storage_state='available'"))){failFinal--;throw Error('D1 final unavailable')}sql.exec('BEGIN');try{const out=[];for(const st of statements)out.push(await st.run());sql.exec('COMMIT');return out}catch(e){sql.exec('ROLLBACK');throw e}}};const bucket={async put(key,value){if(failPut){failPut--;throw Error('R2 unavailable')}files.set(key,Buffer.from(value))},async get(key){return files.has(key)?{body:files.get(key)}:null}};return {sql,store:{db,bucket},files,failPut(){failPut=1},failFinal(){failFinal=1}};}
+const owner={owner:'ownerA',keys:['ownerA','ownerA']},other={owner:'ownerB',keys:['ownerB','ownerB']};
+const projectId='11111111-1111-4111-8111-111111111111',evidenceId='22222222-2222-4222-8222-222222222222';
+const input=(operationId,text='alpha')=>({projectId,evidenceId,operationId,title:'spec',kind:'file',description:'d',originalFilename:'spec.txt',mimeType:'text/plain',bytes:new TextEncoder().encode(text)});
+test('direct evidence registration is immutable, idempotent and owner scoped',async()=>{const h=setup();h.sql.prepare('INSERT INTO projects VALUES (?,?,?,?,?,?)').run(projectId,'ownerA','P','{}',1,new Date().toISOString());const op='33333333-3333-4333-8333-333333333333';const first=await svc.registerEvidence(h.store,owner,input(op)),again=await svc.registerEvidence(h.store,owner,input(op));assert.equal(first.version.versionNo,1);assert.equal(again.idempotent,true);assert.equal(first.version.id,again.version.id);assert.equal(h.sql.prepare('SELECT count(*) n FROM evidence_versions').get().n,1);await assert.rejects(()=>svc.listEvidence(h.store,other,projectId),/案件が見つかりません/);h.sql.close();});
+test('R2 failure retries with the same operation without creating another version',async()=>{const h=setup();h.sql.prepare('INSERT INTO projects VALUES (?,?,?,?,?,?)').run(projectId,'ownerA','P','{}',1,new Date().toISOString());const op='44444444-4444-4444-8444-444444444444';h.failPut();await assert.rejects(()=>svc.registerEvidence(h.store,owner,input(op)),/再試行/);assert.equal(h.sql.prepare('SELECT storage_state FROM evidence_versions WHERE upload_operation_id=?').get(op).storage_state,'pending');const ok=await svc.registerEvidence(h.store,owner,input(op));assert.equal(ok.version.versionNo,1);assert.equal(h.sql.prepare('SELECT count(*) n FROM evidence_versions').get().n,1);h.sql.close();});
+test('R2 success plus D1 final failure resumes safely and older versions remain available',async()=>{const h=setup();h.sql.prepare('INSERT INTO projects VALUES (?,?,?,?,?,?)').run(projectId,'ownerA','P','{}',1,new Date().toISOString());const op1='55555555-5555-4555-8555-555555555555',op2='66666666-6666-4666-8666-666666666666';h.failFinal();await assert.rejects(()=>svc.registerEvidence(h.store,owner,input(op1,'one')),/メタデータ確定/);assert.equal(h.sql.prepare('SELECT state FROM evidence_uploads WHERE operation_id=?').get(op1).state,'r2_stored');const v1=await svc.registerEvidence(h.store,owner,input(op1,'one')),v2=await svc.registerEvidence(h.store,owner,input(op2,'two'));assert.deepEqual([v1.version.versionNo,v2.version.versionNo],[1,2]);const list=await svc.listEvidence(h.store,owner,projectId);assert.deepEqual(list[0].versions.map(x=>x.versionNo),[1,2]);const read=await svc.readEvidenceVersion(h.store,owner,projectId,v1.version.id);assert.equal(new TextDecoder().decode(read.bytes),'one');h.sql.close();});
+test('older pending retry never rolls current version back after a newer version commits',async()=>{
+ const h=setup();h.sql.prepare('INSERT INTO projects VALUES (?,?,?,?,?,?)').run(projectId,'ownerA','P','{}',1,new Date().toISOString());
+ const op1='77777777-7777-4777-8777-777777777777',op2='88888888-8888-4888-8888-888888888888',op3='99999999-9999-4999-8999-999999999999';
+ h.failPut();
+ await assert.rejects(()=>svc.registerEvidence(h.store,owner,input(op1,'one')),/再試行/);
+ const pending=h.sql.prepare('SELECT id,version_no,storage_state FROM evidence_versions WHERE upload_operation_id=?').get(op1);
+ assert.equal(pending.version_no,1);assert.equal(pending.storage_state,'pending');
+ const v2=await svc.registerEvidence(h.store,owner,input(op2,'two'));
+ assert.equal(v2.version.versionNo,2);
+ assert.equal(h.sql.prepare('SELECT current_version_id FROM evidences WHERE id=?').get(evidenceId).current_version_id,v2.version.id);
+ const v1Retry=await svc.registerEvidence(h.store,owner,input(op1,'one'));
+ assert.equal(v1Retry.version.id,pending.id);assert.equal(v1Retry.version.versionNo,1);assert.equal(v1Retry.currentVersionId,v2.version.id);
+ assert.equal(h.sql.prepare('SELECT current_version_id FROM evidences WHERE id=?').get(evidenceId).current_version_id,v2.version.id);
+ const afterRetry=await svc.listEvidence(h.store,owner,projectId);
+ assert.deepEqual(afterRetry[0].versions.map(v=>[v.versionNo,v.storageState]),[[1,'available'],[2,'available']]);
+ assert.equal(h.sql.prepare('SELECT count(*) n FROM evidence_versions WHERE evidence_id=?').get(evidenceId).n,2);
+ const sameRetry=await svc.registerEvidence(h.store,owner,input(op1,'one'));
+ assert.equal(sameRetry.idempotent,true);assert.equal(sameRetry.version.id,pending.id);assert.equal(sameRetry.currentVersionId,v2.version.id);
+ const v3=await svc.registerEvidence(h.store,owner,input(op3,'three'));
+ assert.equal(v3.version.versionNo,3);
+ assert.equal(h.sql.prepare('SELECT current_version_id FROM evidences WHERE id=?').get(evidenceId).current_version_id,v3.version.id);
+ const lastOldRetry=await svc.registerEvidence(h.store,owner,input(op2,'two'));
+ assert.equal(lastOldRetry.idempotent,true);assert.equal(lastOldRetry.currentVersionId,v3.version.id);
+ assert.equal(h.sql.prepare('SELECT current_version_id FROM evidences WHERE id=?').get(evidenceId).current_version_id,v3.version.id);
+ h.sql.close();
+});

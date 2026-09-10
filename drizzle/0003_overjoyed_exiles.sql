@@ -1,0 +1,1 @@
+ALTER TABLE `revisions` ADD `snapshot_object_key` text;

@@ -1,0 +1,58 @@
+name: Import TSUGU source
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  import-source:
+    if: github.event.head_commit.message == 'Bootstrap TSUGU source import'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify archive and import source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP='tsugu-source-v22-de808756(1).zip'
+          EXPECTED_SHA='895a2e25d8dc1b7c71015f855f649e5fec1b375133c79984f1e9fb4c506ffa6c'
+          test -f "$ZIP"
+          ACTUAL_SHA="$(sha256sum "$ZIP" | awk '{print $1}')"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+
+          TMP="$(mktemp -d)"
+          unzip -q "$ZIP" -d "$TMP"
+          test -d "$TMP/tsugu-source"
+          FILE_COUNT="$(find "$TMP/tsugu-source" -type f | wc -l | tr -d ' ')"
+          test "$FILE_COUNT" = '172'
+
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/workflows/import-tsugu-source.yml' \
+            "$TMP/tsugu-source/" ./
+
+          rm -f "$ZIP"
+          rm -f .github/workflows/import-tsugu-source.yml
+          rmdir .github/workflows .github 2>/dev/null || true
+
+          chmod +x scripts/build-verified.sh scripts/install-ci.sh scripts/sites-env.sh
+
+          git add -A
+          TRACKED_COUNT="$(git ls-files | wc -l | tr -d ' ')"
+          test "$TRACKED_COUNT" = '172'
+
+      - name: Commit imported source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Import TSUGU source v22 de808756'
+          git push origin HEAD:main

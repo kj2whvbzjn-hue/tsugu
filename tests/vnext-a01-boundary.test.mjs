@@ -27,6 +27,8 @@ test('A-01 server and DB boundaries are physically separated from legacy persist
   assert.match(auth,/oai-authenticated-user-id/);
   assert.match(schema,/vnext_actors/);
   assert.match(schema,/vnext_audit_logs/);
+  assert.doesNotMatch(store,/UPDATE\s+vnext_audit_logs/i);
+  assert.doesNotMatch(store,/DELETE\s+FROM\s+vnext_audit_logs/i);
 });
 
 test('A-01 0006 migration is additive and does not rewrite legacy tables or data',()=>{

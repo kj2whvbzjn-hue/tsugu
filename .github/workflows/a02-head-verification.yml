@@ -1,0 +1,98 @@
+name: A-02 head verification
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-a02-head:
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout PR head explicitly
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+
+      - name: Record target revision
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "target_sha=$TARGET_SHA"
+            echo "actual_sha=$(git rev-parse HEAD)"
+            node --version
+            npm --version
+          } | tee a02-environment.txt
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          code=$?
+          echo "$code" > a02-revision.exitcode
+          exit "$code"
+
+      - name: Install dependencies
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          npm ci 2>&1 | tee a02-npm-ci.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > a02-npm-ci.exitcode
+          exit "$code"
+
+      - name: A-02 targeted tests
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          node --test tests/vnext-a02-boundary.test.mjs tests/vnext-a02-target-contract.test.mjs tests/vnext-a02-persistence.test.mjs 2>&1 | tee a02-targeted-tests.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > a02-targeted-tests.exitcode
+          exit "$code"
+
+      - name: Full build and test at PR head
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee a02-npm-test.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > a02-npm-test.exitcode
+          exit "$code"
+
+      - name: Typecheck PR head
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          npx tsc --noEmit --incremental false 2>&1 | tee a02-typecheck.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > a02-typecheck.exitcode
+          exit "$code"
+
+      - name: Upload A-02 verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a02-head-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            a02-environment.txt
+            a02-*.exitcode
+            a02-*.log
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Final result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in a02-revision.exitcode a02-npm-ci.exitcode a02-targeted-tests.exitcode a02-npm-test.exitcode a02-typecheck.exitcode; do
+            test -f "$f"
+            test "$(cat "$f")" = "0"
+          done

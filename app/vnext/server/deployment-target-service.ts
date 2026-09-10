@@ -40,9 +40,9 @@ function assertRevision(actual:number,expected:number){if(!isPositiveRevision(ex
 function authorize(access:A02Access,permission:'project.read'|'project.write'){
   authorizeProjectAction({...access,requiredPermission:permission});
 }
-function sameRepository(a:Repository,b:Repository){return a.id===b.id&&a.projectId===b.projectId&&a.provider===b.provider&&a.externalRef===b.externalRef&&a.revision===b.revision;}
-function sameEnvironment(a:Environment,b:Environment){return a.id===b.id&&a.projectId===b.projectId&&a.key===b.key&&a.providerRef===b.providerRef&&a.revision===b.revision;}
-function sameCommit(a:RepositoryCommitRef,b:RepositoryCommitRef){return a.id===b.id&&a.projectId===b.projectId&&a.repositoryId===b.repositoryId&&a.repositoryRevision===b.repositoryRevision&&a.commitSha===b.commitSha&&a.treeSha===b.treeSha;}
+function sameRepositoryValues(a:Repository,b:Repository){return a.projectId===b.projectId&&a.provider===b.provider&&a.externalRef===b.externalRef&&a.revision===b.revision;}
+function sameEnvironmentValues(a:Environment,b:Environment){return a.projectId===b.projectId&&a.key===b.key&&a.providerRef===b.providerRef&&a.revision===b.revision;}
+function sameCommitValues(a:RepositoryCommitRef,b:RepositoryCommitRef){return a.projectId===b.projectId&&a.repositoryId===b.repositoryId&&a.repositoryRevision===b.repositoryRevision&&a.commitSha===b.commitSha&&a.treeSha===b.treeSha;}
 function sameDeploymentValues(a:Deployment,b:Omit<Deployment,'id'|'createdAt'>){
   return a.projectId===b.projectId&&a.environmentId===b.environmentId&&a.environmentRevision===b.environmentRevision&&a.repositoryId===b.repositoryId&&a.repositoryRevision===b.repositoryRevision&&a.commitRefId===b.commitRefId&&a.commitSha===b.commitSha&&a.treeSha===b.treeSha&&a.artifactDigest===b.artifactDigest&&a.configVersion===b.configVersion&&a.schemaVersion===b.schemaVersion&&a.providerDeploymentRef===b.providerDeploymentRef;
 }
@@ -56,7 +56,7 @@ export async function registerRepository(store:DeploymentTargetStore,access:A02A
   if(existing){assertProject(existing.projectId,projectId);return existing;}
   const candidate:Repository={id:runtime.randomId('repository'),projectId,provider,externalRef,revision:1,createdAt:runtime.now().toISOString()};
   const persisted=await store.insertRepository(candidate);
-  if(!sameRepository(persisted,candidate))fail('IMMUTABLE_CONFLICT','Repository identity was concurrently bound to different immutable values');
+  if(!sameRepositoryValues(persisted,candidate))fail('IMMUTABLE_CONFLICT','Repository identity was concurrently bound to different immutable values');
   return persisted;
 }
 
@@ -73,7 +73,7 @@ export async function registerEnvironment(store:DeploymentTargetStore,access:A02
   }
   const candidate:Environment={id:runtime.randomId('environment'),projectId,key,providerRef,revision:1,createdAt:runtime.now().toISOString()};
   const persisted=await store.insertEnvironment(candidate);
-  if(!sameEnvironment(persisted,candidate))fail('IMMUTABLE_CONFLICT','Environment identity was concurrently bound to different immutable values');
+  if(!sameEnvironmentValues(persisted,candidate))fail('IMMUTABLE_CONFLICT','Environment identity was concurrently bound to different immutable values');
   return persisted;
 }
 
@@ -93,7 +93,7 @@ export async function registerRepositoryCommitRef(store:DeploymentTargetStore,ac
   }
   const candidate:RepositoryCommitRef={id:runtime.randomId('commit'),projectId,repositoryId,repositoryRevision:repository.revision,commitSha,treeSha,createdAt:runtime.now().toISOString()};
   const persisted=await store.insertCommitRef(candidate);
-  if(!sameCommit(persisted,candidate))fail('IMMUTABLE_CONFLICT','RepositoryCommitRef was concurrently bound to different immutable values');
+  if(!sameCommitValues(persisted,candidate))fail('IMMUTABLE_CONFLICT','RepositoryCommitRef was concurrently bound to different immutable values');
   return persisted;
 }
 

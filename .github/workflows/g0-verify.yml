@@ -1,0 +1,89 @@
+name: G0 verification
+
+on:
+  push:
+    branches:
+      - vnext-g0-20260910
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          cache: npm
+      - name: Record revision
+        run: |
+          mkdir -p artifacts
+          printf 'commit=%s\nnode=%s\nnpm=%s\n' "$(git rev-parse HEAD)" "$(node --version)" "$(npm --version)" | tee artifacts/environment.txt
+      - name: Install dependencies
+        id: install
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee artifacts/npm-ci.log
+          rc=${PIPESTATUS[0]}
+          echo "$rc" > artifacts/npm-ci.exitcode
+          exit "$rc"
+      - name: Build
+        id: build
+        if: always() && steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee artifacts/build.log
+          rc=${PIPESTATUS[0]}
+          echo "$rc" > artifacts/build.exitcode
+          exit "$rc"
+      - name: Tests
+        id: tests
+        if: always() && steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test tests/*.test.mjs 2>&1 | tee artifacts/tests.log
+          rc=${PIPESTATUS[0]}
+          echo "$rc" > artifacts/tests.exitcode
+          exit "$rc"
+      - name: Typecheck
+        id: typecheck
+        if: always() && steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsc --noEmit --incremental false 2>&1 | tee artifacts/typecheck.log
+          rc=${PIPESTATUS[0]}
+          echo "$rc" > artifacts/typecheck.exitcode
+          exit "$rc"
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g0-verification-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: warn
+      - name: Final result
+        if: always()
+        shell: bash
+        run: |
+          echo "install=${{ steps.install.outcome }}"
+          echo "build=${{ steps.build.outcome }}"
+          echo "tests=${{ steps.tests.outcome }}"
+          echo "typecheck=${{ steps.typecheck.outcome }}"
+          test "${{ steps.install.outcome }}" = success
+          test "${{ steps.build.outcome }}" = success
+          test "${{ steps.tests.outcome }}" = success
+          test "${{ steps.typecheck.outcome }}" = success

@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - vnext-g0-20260910
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

@@ -32,7 +32,7 @@ test('A-01 server and DB boundaries are physically separated from legacy persist
 test('A-01 0006 migration is additive and does not rewrite legacy tables or data',()=>{
   const sql=read('drizzle/0006_vnext_identity_audit_bootstrap.sql');
   for(const table of ['vnext_actors','vnext_roles','vnext_project_memberships','vnext_policies','vnext_audit_logs','vnext_bootstrap_receipts']){
-    assert.match(sql,new RegExp(`CREATE TABLE \\`${table}\\``));
+    assert.match(sql,new RegExp('CREATE TABLE `'+table+'`'));
   }
   assert.doesNotMatch(sql,/\b(?:DROP|ALTER|UPDATE|DELETE|REPLACE)\b/i);
   assert.doesNotMatch(sql,/\bINSERT\s+INTO\s+`?(?:projects|revisions|original_files|deletion_jobs|proposals|evidences|evidence_versions|evidence_uploads)`?/i);

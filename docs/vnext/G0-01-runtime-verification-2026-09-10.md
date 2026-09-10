@@ -138,7 +138,6 @@ UI `Workspace.load()` は `/api/projects` を呼び、その結果を直接 `rec
 ### 3.3 owner不一致で説明できる範囲
 
 owner不一致は、現在D1に存在する `かんたん検索` 1件が現在ユーザーに見えないことは説明できる。
-
 しかし監督実測では `projects` table全体が1行しかないため、owner不一致だけでは過去26/27件が現在D1から消えている事実を説明できない。
 
 従って owner fragmentation は **確認済みの問題だが、過去案件の所在不明に対する単独主因ではない**。
@@ -541,3 +540,82 @@ G0-01は **データ所在・identity provenance診断中**。
 - A-01実装開始
 
 既存Evidence、stable ID、FAIL履歴、owner互換性を破壊していない。
+
+## 13. 監督追補 — v21/v22 deployment metadata の追加確定
+
+2026-09-10の監督側read-only確認により、section 1.2 / section 9 / section 11に残る「v21 deployment/source未確認」という旧記述は、**version/source/deployment metadataに限って以下で更新する**。physical resource provenanceは未確認のまま維持する。
+
+### 13.1 v21 確定値
+
+- Sites version: `21`
+- source identifier: `a61060a798454fc457bce4afc05d24202f8c656e`
+- Deployment ID: `appgdep_6aa122d6d9f481919bb334743dfad300`
+- status: `succeeded`
+- updated: `2026-09-09T09:12:44.881187Z`
+- provider_deployment_id: `site---6a9d191e8fd48191ac8b14311ccfa935`
+- env_set_revision: `0`
+
+### 13.2 v22 確定値
+
+- Sites version: `22`
+- source identifier: `de808756e8396b612ee992f83be3df61176f4dda`
+- Deployment ID: `appgdep_6aa20602a9c8819192425635a3c76520`
+- status: `succeeded`
+- updated: `2026-09-10T01:22:01.373021Z`
+- provider_deployment_id: `site---6a9d191e8fd48191ac8b14311ccfa935`
+- env_set_revision: `0`
+
+Sites environment variables は両対象について revision `0` / entries empty と監督側で確認済み。
+
+### 13.3 physical resource同一性についての判定
+
+`provider_deployment_id` が同一、`env_set_revision` が両方0、environment variablesもrevision 0 / entries emptyという一致から、v21/v22が同一physical D1/R2を利用しているとは結論しない。
+
+理由は、これらの取得項目に次が含まれていないため。
+
+- Environment identifier
+- physical D1 database/resource ID
+- logical `DB` → physical D1 のbinding target
+- physical R2 bucket/resource ID
+- logical `BUCKET` → physical R2 のbinding target
+- binding provenance / resource mapping revision
+
+同じ `provider_deployment_id` は同一provider-side site familyの観測として扱い、`env_set_revision=0` はenvironment-set metadataの一致として扱う。どちらもD1/R2 resource identityの代替値にはしない。
+
+また、Sites environment variable entriesが空であることは、D1/R2 bindingsが同一・不存在・空であることを意味しない。resource binding metadataとは別に確認する。
+
+### 13.4 追補後の確認済み
+
+- v21 version/source/deployment/status/updated/provider_deployment_id/env_set_revision
+- v22 version/source/deployment/status/updated/provider_deployment_id/env_set_revision
+- Sites environment variables: revision 0 / entries empty
+- 従来のv22 UI/D1実測およびGitHub/CI証拠
+
+### 13.5 追補後も UNVERIFIED
+
+- v21/v22 Environment identifier
+- v21/v22 physical D1 resource ID / binding target
+- v21/v22 physical R2 resource ID / binding target
+- v21 D1 inventory / owner分布 / 過去26/27案件の所在
+- Sites migration journal / applied migration record
+- orphan EvidenceのR2 object存在 / actual size / SHA readback
+- v22 signed-in `/api/projects` response原文
+- backup / restore権限と実操作経路
+- owner分断の実原因
+- Project deletionが実際に起きたか
+
+### 13.6 現在の阻害と必要な最小権限 / 画面
+
+この作業チャットの認可済みブラウザ経路は `Browser not connected` のため、これ以上の実機read-only取得は実行不能。指示どおり再試行ループや迂回は行わない。
+
+残項目の取得には、Sitesのversion/deployment詳細または同等のread-only管理APIで次を閲覧できる権限が必要。
+
+1. deploymentごとのEnvironment identifier
+2. D1 bindingのlogical nameとphysical resource identifier
+3. R2 bindingのlogical nameとphysical resource identifier
+4. 対象physical D1へのSELECT / read-only PRAGMA
+5. 対象physical R2へのobject metadata/read
+
+設定変更、migration、rebind、redeploy、write/delete権限は不要であり、要求しない。
+
+G0-02承認/A-01/TSUGU登録は引き続き保留する。

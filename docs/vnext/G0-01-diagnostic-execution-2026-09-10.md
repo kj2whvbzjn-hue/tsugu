@@ -210,3 +210,55 @@ complete owner値はこの公開資料に記録しない。
 6. 対象Evidence R2 objectの `EXISTS/NOT_FOUND`、actual size、SHA一致/不一致/未確認
 
 これらが揃うまでrebind/owner変更/migration/redeployは行わない。
+
+## 11. 監督追補 — v21/v22 deployment control-plane 確定情報
+
+2026-09-10、監督側の正規な読取経路で次が追加確認された。本節は、上記「v21 Deployment ID / source identifier 未取得」という旧記述をこの2項目について更新する。physical resource未確認の扱いは変更しない。
+
+### v21
+
+- Sites version: `21`
+- source identifier: `a61060a798454fc457bce4afc05d24202f8c656e`
+- Deployment ID: `appgdep_6aa122d6d9f481919bb334743dfad300`
+- status: `succeeded`
+- updated: `2026-09-09T09:12:44.881187Z`
+- provider_deployment_id: `site---6a9d191e8fd48191ac8b14311ccfa935`
+- env_set_revision: `0`
+
+### v22
+
+- Sites version: `22`
+- source identifier: `de808756e8396b612ee992f83be3df61176f4dda`
+- Deployment ID: `appgdep_6aa20602a9c8819192425635a3c76520`
+- status: `succeeded`
+- updated: `2026-09-10T01:22:01.373021Z`
+- provider_deployment_id: `site---6a9d191e8fd48191ac8b14311ccfa935`
+- env_set_revision: `0`
+
+Sites environment variables は監督読取で revision `0`、entries empty と確認された。
+
+### この一致から結論してよいこと / いけないこと
+
+`provider_deployment_id` が同一、`env_set_revision` が両方0、environment variablesもrevision 0 / entries emptyであることは、同一provider-side site familyおよび同じenvironment-set metadataを使っている観測として記録する。
+
+ただし、これらのmetadataにはphysical D1 database ID、physical R2 bucket ID、logical bindingからphysical resourceへの解決先、Environment identifierが含まれていない。従って **v21/v22が同じphysical D1/R2を使うとは結論しない**。
+
+特にenvironment variable entriesが空であることはD1/R2 bindingsが空、同一、または不存在であることの証拠ではない。resource binding metadataとは別に取得する必要がある。
+
+### 追補後も UNVERIFIED の項目
+
+- v21/v22 Environment identifier
+- v21/v22 physical D1 resource ID
+- v21/v22 physical R2 resource ID
+- v21/v22 applied migration record / migration journal
+- v21 D1 table counts / owner distribution / historic 26/27 project inventory
+- direct R2 object existence / actual size / SHA readback
+- v22 signed-in `/api/projects` response原文
+
+### 阻害と必要な最小権限 / 画面
+
+この作業チャットの認可済みブラウザ経路は `Browser not connected` のため追加取得不能。再試行・迂回は行わない。
+
+残項目を埋めるには、Sitesのversion/deployment詳細画面または同等のread-only管理APIで、**Environment identifierとD1/R2 bindingのphysical resource identifierを表示できる権限**が必要。加えて、対象physical D1へのSELECT/read-only PRAGMA権限と、対象physical R2へのobject metadata/read権限が必要である。write、rebind、deploy、migration、delete権限は不要。
+
+次に監督側から必要な入力は、上記で新たに確定したv21 deployment/sourceを除き、physical D1/R2 IDの一致/不一致、v21 inventory、R2 EXISTS/size/SHA、Environment identifierのみでよい。

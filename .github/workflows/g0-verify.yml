@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  G0_BASE_SHA: ad3534750e03345b38a01416e012b9f4dde06701
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -19,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.G0_BASE_SHA }}
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
@@ -27,7 +31,9 @@ jobs:
       - name: Record revision
         run: |
           mkdir -p artifacts
-          printf 'commit=%s\nnode=%s\nnpm=%s\n' "$(git rev-parse HEAD)" "$(node --version)" "$(npm --version)" | tee artifacts/environment.txt
+          actual="$(git rev-parse HEAD)"
+          printf 'expected_commit=%s\nactual_commit=%s\nnode=%s\nnpm=%s\n' "$G0_BASE_SHA" "$actual" "$(node --version)" "$(npm --version)" | tee artifacts/environment.txt
+          test "$actual" = "$G0_BASE_SHA"
       - name: Install dependencies
         id: install
         continue-on-error: true

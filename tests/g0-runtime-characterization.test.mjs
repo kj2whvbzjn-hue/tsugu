@@ -27,15 +27,39 @@ function setup(){
  for(const name of ['0000_tiny_living_tribunal','0001_smooth_shotgun','0002_redundant_hiroim','0003_overjoyed_exiles','0004_blue_yellowjacket','0005_evidence_core']){
   sql.exec(readFileSync('drizzle/'+name+'.sql','utf8').replaceAll('--> statement-breakpoint',''));
  }
- const files=new Map();let getCalls=0;
+ const files=new Map();
+ let getCalls=0;
  const db={
-  prepare(query){return {bind(...args){return {query,args,async first(){return sql.prepare(query).get(...args)??null},async all(){return {results:sql.prepare(query).all(...args)}},async run(){const r=sql.prepare(query).run(...args);return {meta:{changes:Number(r.changes)}}}}}},
-  async batch(statements){sql.exec('BEGIN');try{const out=[];for(const st of statements)out.push(await st.run());sql.exec('COMMIT');return out}catch(e){sql.exec('ROLLBACK');throw e}}
+  prepare(query){
+   return {
+    bind(...args){
+     return {
+      query,
+      args,
+      async first(){return sql.prepare(query).get(...args)??null},
+      async all(){return {results:sql.prepare(query).all(...args)}},
+      async run(){const r=sql.prepare(query).run(...args);return {meta:{changes:Number(r.changes)}}},
+     };
+    },
+   };
+  },
+  async batch(statements){
+   sql.exec('BEGIN');
+   try{
+    const out=[];
+    for(const st of statements)out.push(await st.run());
+    sql.exec('COMMIT');
+    return out;
+   }catch(e){
+    sql.exec('ROLLBACK');
+    throw e;
+   }
+  },
  };
  const bucket={
   async put(key,value){files.set(key,Buffer.from(value))},
   async get(key){getCalls++;return files.has(key)?{body:files.get(key)}:null},
-  async delete(key){files.delete(key)}
+  async delete(key){files.delete(key)},
  };
  globalThis.__g0Store={db,bucket};
  return {sql,store:{db,bucket},files,getCalls:()=>getCalls};
@@ -44,7 +68,7 @@ function setup(){
 const request=(path,{method='GET',body,email='one@example.test',userId='legacy-user-1'}={})=>new Request('https://example.test/api/projects'+path,{
  method,
  headers:{'oai-authenticated-user-email':email,'oai-authenticated-user-id':userId,origin:'https://example.test','content-type':'application/json'},
- ...(body?{body:JSON.stringify(body)}:{})
+ ...(body?{body:JSON.stringify(body)}:{}),
 });
 
 async function fixtureIdentity(email='one@example.test',userId='legacy-user-1'){

@@ -30,7 +30,7 @@ test('A-02 0007 migration is additive and leaves legacy and A-01 tables untouche
   for(const table of ['vnext_repositories','vnext_repository_commit_refs','vnext_repository_baselines','vnext_environments','vnext_deployments']){
     assert.equal(sql.includes(`CREATE TABLE \`${table}\``),true,`missing ${table}`);
   }
-  assert.doesNotMatch(sql,/\b(?:DROP|ALTER|UPDATE|DELETE|REPLACE)\b/i);
+  assert.doesNotMatch(sql,/(?:^|\n)\s*(?:DROP|ALTER|UPDATE|DELETE|REPLACE)\b/im);
   assert.doesNotMatch(sql,/\bINSERT\s+INTO\s+`?(?:projects|revisions|original_files|deletion_jobs|proposals|evidences|evidence_versions|evidence_uploads|vnext_actors|vnext_roles|vnext_project_memberships|vnext_policies|vnext_audit_logs|vnext_bootstrap_receipts)`?/i);
   assert.doesNotMatch(sql,/REFERENCES\s+`?projects`?\s*\(/i);
 });

@@ -1,0 +1,98 @@
+name: G0 head diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-head:
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout PR head explicitly
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+
+      - name: Record target revision
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "target_sha=$TARGET_SHA"
+            echo "actual_sha=$(git rev-parse HEAD)"
+            node --version
+            npm --version
+          } | tee head-environment.txt
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          code=$?
+          echo "$code" > revision.exitcode
+          exit "$code"
+
+      - name: Install dependencies
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          npm ci 2>&1 | tee npm-ci-head.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > npm-ci-head.exitcode
+          exit "$code"
+
+      - name: G0 characterization tests
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          node --test tests/g0-runtime-characterization.test.mjs 2>&1 | tee g0-characterization.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > g0-characterization.exitcode
+          exit "$code"
+
+      - name: Full build and test at PR head
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee npm-test-head.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > npm-test-head.exitcode
+          exit "$code"
+
+      - name: Typecheck PR head
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          npx tsc --noEmit --incremental false 2>&1 | tee typecheck-head.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > typecheck-head.exitcode
+          exit "$code"
+
+      - name: Upload head diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g0-head-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            head-environment.txt
+            *.exitcode
+            *.log
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Final result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in revision.exitcode npm-ci-head.exitcode g0-characterization.exitcode npm-test-head.exitcode typecheck-head.exitcode; do
+            test -f "$f"
+            test "$(cat "$f")" = "0"
+          done

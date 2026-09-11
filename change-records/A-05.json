@@ -1,0 +1,56 @@
+{
+  "taskId": "A-05",
+  "baseline": {
+    "gitCommit": "fe74e9e1bc46c9defbd207385054bcb00dd94ebd",
+    "a04ResultCommit": "5e8957238b87637ee349cb6ba4e4c9d154f01f90",
+    "projectRevision": null
+  },
+  "scope": [
+    "RepositoryCommitRef persistent receive",
+    "IntegrationRecord",
+    "SyncJob",
+    "GitHub API refresh and reconciliation",
+    "persistent lease and expiry recovery",
+    "retry and max-attempt error state",
+    "sync status admin display",
+    "Stage A integration verification"
+  ],
+  "acceptance": [
+    "Same repository ID + full commit SHA is persistently deduplicated",
+    "Same SHA in different repositories remains distinct",
+    "IntegrationRecord and SyncJob are persisted before processing",
+    "Lease ownership and expiry are persisted with GitHub blob-SHA CAS",
+    "Expired leases can be recovered by another worker",
+    "Interrupted processing can retry after nextAttemptAt and reaches DEAD at max attempts",
+    "Observed repository and ledger repository are not assumed to be the same",
+    "Explicit GitHub refresh captures the branch head and readback-verifies the sync ledger",
+    "Admin status exposes received/processed/pending/leased/dead/latest commit state",
+    "ActualChange is not required for Stage A acceptance",
+    "Published Pages bundle exposes A-05 sync modules",
+    "Actual GitHub temp-branch E2E proves receive/dedupe/lease recovery/retry/new-head reconciliation"
+  ],
+  "plannedFiles": [
+    "static/core-sync.js",
+    "static/core-sync-storage.js",
+    "static/core-sync-reconcile.js",
+    "static/core-sync-admin.js",
+    "tests/core-sync.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/sync-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_A05.md",
+    "change-records/A-05.json"
+  ],
+  "verificationEvidence": [
+    "node --test tests/core-sync.test.cjs: pending merge",
+    "Deploy TSUGU: pending merge",
+    "TSUGU Sync E2E: pending merge",
+    "TSUGU ChangeSet E2E: pending merge",
+    "TSUGU Architecture E2E: pending merge",
+    "TSUGU Core Reference E2E: pending merge",
+    "TSUGU E2E: pending merge"
+  ],
+  "status": "IN_PROGRESS",
+  "nextTask": "B-01",
+  "rollbackPlan": "Revert the A-05 result commit. Sync ledger records are additive operational state and do not replace Git history or Private project records. Do not restore retired server runtimes."
+}

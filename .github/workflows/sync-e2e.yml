@@ -1,0 +1,192 @@
+name: TSUGU Sync E2E
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-sync-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Verify A-05 contracts
+        run: node --test tests/core-sync.test.cjs
+      - name: Verify published sync modules
+        env:
+          E2E_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          for f in core-sync.js core-sync-storage.js core-sync-reconcile.js core-sync-admin.js; do
+            curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/${f}?run=${E2E_RUN_ID}" -o "/tmp/${f}"
+            cmp "static/${f}" "/tmp/${f}"
+          done
+          grep -q 'Core同期状態' static/core-sync-admin.js
+      - name: Verify persistent receive, dedupe, lease recovery and retry
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          E2E_RUN_ID: ${{ github.run_id }}
+          E2E_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          node <<'NODE'
+          (async () => {
+            const assert = require('node:assert/strict');
+            const fs = require('node:fs');
+            const Sync = require('./static/core-sync.js');
+            const Storage = require('./static/core-sync-storage.js');
+            const Reconcile = require('./static/core-sync-reconcile.js');
+            const owner = 'kj2whvbzjn-hue';
+            const repo = 'tsugu';
+            const fullName = `${owner}/${repo}`;
+            const suffix = `${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}`;
+            const observedBranch = `a05-observed-${suffix}`;
+            const ledgerBranch = `a05-ledger-${suffix}`;
+            const ledgerPath = `data/e2e/a05-sync-${suffix}.json`;
+            const token = process.env.GH_TOKEN_E2E;
+            const sourceSha = process.env.SOURCE_SHA;
+            const apiHeaders = {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${token}`,
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'tsugu-a05-e2e'
+            };
+            async function api(path, options = {}, allow404 = false) {
+              const r = await fetch(`https://api.github.com${path}`, { ...options, headers: { ...apiHeaders, ...(options.headers || {}) } });
+              const text = await r.text();
+              if (allow404 && r.status === 404) return null;
+              if (!r.ok) throw new Error(`GitHub ${r.status}: ${text}`);
+              return text ? JSON.parse(text) : null;
+            }
+            async function createBranch(branch, sha) {
+              await api(`/repos/${owner}/${repo}/git/refs`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ref: `refs/heads/${branch}`, sha })
+              });
+            }
+            async function deleteBranch(branch) {
+              await api(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'DELETE' }, true);
+            }
+            await createBranch(observedBranch, sourceSha);
+            await createBranch(ledgerBranch, sourceSha);
+            console.log(`TEMP BRANCHES CREATED observed=${observedBranch} ledger=${ledgerBranch}`);
+            try {
+              const common = {
+                fetch, token,
+                observedRepository: fullName,
+                observedBranch,
+                ledgerRepository: fullName,
+                ledgerBranch,
+                projectId: 'project:a05:e2e',
+                path: ledgerPath
+              };
+              const first = await Reconcile.refreshAndPersist({ ...common, now: '2026-09-11T00:00:00Z' });
+              assert.equal(first.status, 'RECEIVED');
+              assert.equal(first.aggregate.integrations.length, 1);
+              assert.equal(first.aggregate.jobs.length, 1);
+              assert.equal(first.integrationRecord.commitRef.commitSha, sourceSha);
+
+              const duplicate = await Reconcile.refreshAndPersist({ ...common, now: '2026-09-11T00:00:01Z' });
+              assert.equal(duplicate.status, 'DEDUPED');
+              assert.equal(duplicate.aggregate.integrations.length, 1);
+              assert.equal(duplicate.aggregate.jobs.length, 1);
+
+              const storageCommon = { fetch, token, repository: fullName, branch: ledgerBranch, path: ledgerPath };
+              const leasedA = await Storage.transitionWithContentApi({
+                ...storageCommon, action: 'CLAIM', args: { workerId: 'worker:a', now: '2026-09-11T00:00:10Z', leaseSeconds: 10 }
+              });
+              assert.equal(leasedA.status, 'LEASED');
+              assert.equal(leasedA.job.attempts, 1);
+
+              const recovered = await Storage.transitionWithContentApi({
+                ...storageCommon, action: 'CLAIM', args: { workerId: 'worker:b', now: '2026-09-11T00:00:21Z', leaseSeconds: 10 }
+              });
+              assert.equal(recovered.status, 'LEASED');
+              assert.equal(recovered.job.leaseOwner, 'worker:b');
+              assert.equal(recovered.job.attempts, 2);
+
+              const failed = await Storage.transitionWithContentApi({
+                ...storageCommon, action: 'FAIL', args: { jobId: recovered.job.id, workerId: 'worker:b', error: 'INTERRUPTED_ONCE', now: '2026-09-11T00:00:22Z', retrySeconds: 2 }
+              });
+              assert.equal(failed.status, 'PENDING');
+
+              const tooEarly = await Storage.transitionWithContentApi({
+                ...storageCommon, action: 'CLAIM', args: { workerId: 'worker:c', now: '2026-09-11T00:00:23Z', leaseSeconds: 10 }
+              });
+              assert.equal(tooEarly.status, 'EMPTY');
+
+              const retry = await Storage.transitionWithContentApi({
+                ...storageCommon, action: 'CLAIM', args: { workerId: 'worker:c', now: '2026-09-11T00:00:25Z', leaseSeconds: 10 }
+              });
+              assert.equal(retry.status, 'LEASED');
+              assert.equal(retry.job.attempts, 3);
+              const completed = await Storage.transitionWithContentApi({
+                ...storageCommon, action: 'COMPLETE', args: { jobId: retry.job.id, workerId: 'worker:c', now: '2026-09-11T00:00:26Z' }
+              });
+              assert.equal(completed.status, 'SUCCEEDED');
+              assert.equal(completed.aggregate.integrations[0].status, 'PROCESSED');
+
+              const markerPath = `data/e2e/a05-observed-marker-${suffix}.txt`;
+              const marker = await api(`/repos/${owner}/${repo}/contents/${markerPath}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'Advance A-05 observed head', content: Buffer.from(`a05 ${suffix}\n`).toString('base64'), branch: observedBranch })
+              });
+              const advancedSha = marker.commit.sha;
+              assert.notEqual(advancedSha, sourceSha);
+
+              const advanced = await Reconcile.refreshAndPersist({ ...common, now: '2026-09-11T00:01:00Z' });
+              assert.equal(advanced.status, 'RECEIVED');
+              assert.equal(advanced.aggregate.integrations.length, 2);
+              assert.equal(advanced.aggregate.jobs.length, 2);
+              assert.equal(advanced.integrationRecord.commitRef.commitSha, advancedSha);
+              assert.equal(advanced.aggregate.integrations.filter(x => x.status === 'PROCESSED').length, 1);
+
+              const summary = Sync.statusSummary(advanced.aggregate, '2026-09-11T00:01:01Z');
+              assert.equal(summary.processed, 1);
+              assert.equal(summary.received, 1);
+              assert.equal(summary.pending, 1);
+              assert.equal(summary.retryReady, 1);
+              assert.equal(summary.latestCommitSha, advancedSha);
+
+              const observation = {
+                sourceSha,
+                advancedSha,
+                observedBranch,
+                ledgerBranch,
+                ledgerPath,
+                integrationCount: advanced.aggregate.integrations.length,
+                jobCount: advanced.aggregate.jobs.length,
+                firstProcessed: true,
+                duplicateSuppressed: true,
+                expiredLeaseRecovered: true,
+                retrySucceeded: true,
+                summary
+              };
+              fs.writeFileSync('a05-observation.json', JSON.stringify(observation, null, 2));
+              console.log(JSON.stringify(observation));
+            } finally {
+              await deleteBranch(observedBranch);
+              await deleteBranch(ledgerBranch);
+              console.log('TEMP BRANCHES DELETED');
+            }
+          })().catch(e => { console.error(e.stack || e); process.exit(1); });
+          NODE
+      - name: Upload A-05 observation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsugu-a05-observation
+          path: a05-observation.json
+          if-no-files-found: ignore

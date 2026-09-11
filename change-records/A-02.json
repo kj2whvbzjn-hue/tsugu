@@ -1,0 +1,49 @@
+{
+  "taskId": "A-02",
+  "baseline": {
+    "gitCommit": "15929d1816519f07c080ff5e89a2d08877ecffae",
+    "deployment": "A-01 verified deployment run 34554150292",
+    "projectRevision": null
+  },
+  "scope": [
+    "RepositoryCommitRef",
+    "RepositoryBaseline",
+    "Environment",
+    "Deployment",
+    "GitHub Pages deployment fact readback"
+  ],
+  "plannedFiles": [
+    "static/core-reference.js",
+    "tests/core-reference.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/core-reference-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_A02.md",
+    "change-records/A-02.json"
+  ],
+  "acceptance": [
+    "RepositoryCommitRef identity includes repository ID and full commit SHA",
+    "RepositoryBaseline fixes commit and tree SHA",
+    "Same SHA in another repository is not the same reference",
+    "Same commit redeployed in another workflow run is a different Deployment",
+    "Deployment fixes source commit, tree, artifact digest, workflow config blob SHA, schema versions and environment",
+    "Published Pages bundle exposes the Core Reference module",
+    "Deployment facts are read back from GitHub API after the actual Pages deployment"
+  ],
+  "verificationPlan": [
+    "node --check static/core-reference.js",
+    "node --test tests/core-reference.test.cjs",
+    "Deploy TSUGU success on result commit",
+    "Existing TSUGU E2E success on result commit",
+    "TSUGU Core Reference E2E matches published core-reference.js with checkout and captures exact deployment facts"
+  ],
+  "verificationEvidence": [
+    "node --check static/core-reference.js: PASS locally",
+    "node --test tests/core-reference.test.cjs: 7/7 PASS locally",
+    "Deploy TSUGU: pending merge",
+    "TSUGU E2E: pending merge",
+    "TSUGU Core Reference E2E: pending merge"
+  ],
+  "status": "IN_PROGRESS",
+  "rollbackPlan": "Revert the A-02 result commit. Do not restore retired server runtimes or alter Private project data. Repository/Deployment records are additive immutable facts and do not replace Git history."
+}

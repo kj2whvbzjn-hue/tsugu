@@ -1,0 +1,148 @@
+name: TSUGU ChangeSet E2E
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-changeset-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Verify A-04 contracts
+        run: node --test tests/core-changeset.test.cjs
+      - name: Verify published module and atomic GitHub Apply
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          E2E_RUN_ID: ${{ github.run_id }}
+          E2E_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-changeset.js?run=${E2E_RUN_ID}" -o /tmp/published-core-changeset.js
+          cmp static/core-changeset.js /tmp/published-core-changeset.js
+          node <<'NODE'
+          (async () => {
+            const assert = require('node:assert/strict');
+            const Architecture = require('./static/core-architecture.js');
+            const ChangeSet = require('./static/core-changeset.js');
+            const owner = 'kj2whvbzjn-hue';
+            const repo = 'tsugu';
+            const branch = `a04-e2e-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}`;
+            const path = `data/e2e/a04-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}.json`;
+            const token = process.env.GH_TOKEN_E2E;
+            const headers = {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${token}`,
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'tsugu-a04-e2e'
+            };
+            async function api(pathname, options = {}, allow404 = false) {
+              const r = await fetch(`https://api.github.com${pathname}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
+              const text = await r.text();
+              if (allow404 && r.status === 404) return null;
+              if (!r.ok) throw new Error(`GitHub ${r.status}: ${text}`);
+              return text ? JSON.parse(text) : null;
+            }
+            const sourceSha = process.env.SOURCE_SHA;
+            await api(`/repos/${owner}/${repo}/git/refs`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: sourceSha })
+            });
+            console.log(`TEMP BRANCH CREATED ${branch}`);
+            try {
+              const arch = Architecture.createProjectArchitecture({
+                projectId: 'project:a04:e2e', name: 'A-04 E2E', revision: 1,
+                repositoryScopes: [{ repositoryId: 1363396531, fullName: `${owner}/${repo}` }]
+              });
+              const aggregate = ChangeSet.createAggregate(arch);
+              const created = await api(`/repos/${owner}/${repo}/contents/${path}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'Initialize A-04 E2E aggregate', content: Buffer.from(ChangeSet.stableStringify(aggregate)).toString('base64'), branch })
+              });
+              const baseBlobSha = created.content.sha;
+              const first = ChangeSet.createChangeSet({
+                id: 'changeset:a04:e2e:first', projectId: aggregate.projectId, idempotencyKey: 'idem:a04:e2e:first',
+                baseRevision: 1, baseBlobSha, createdBy: owner,
+                operations: [{ type: 'ADD_NODE', id: 'node:first', name: 'First' }],
+                preconditions: [{ type: 'REPOSITORY_SCOPE', repositoryId: 1363396531 }]
+              });
+              const second = ChangeSet.createChangeSet({
+                id: 'changeset:a04:e2e:second', projectId: aggregate.projectId, idempotencyKey: 'idem:a04:e2e:second',
+                baseRevision: 1, baseBlobSha, createdBy: owner,
+                operations: [{ type: 'ADD_NODE', id: 'node:second', name: 'Second' }], preconditions: []
+              });
+              const v1 = ChangeSet.validateChangeSet(aggregate, baseBlobSha, first, { now: '2026-09-11T00:00:00Z' });
+              const v2 = ChangeSet.validateChangeSet(aggregate, baseBlobSha, second, { now: '2026-09-11T00:00:00Z' });
+              const applied = await ChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: first, validationRecord: v1.validationRecord, actor: owner, now: '2026-09-11T00:01:00Z' });
+              assert.equal(applied.status, 'APPLIED');
+              assert.equal(applied.revision, 2);
+
+              let stale = null;
+              try {
+                await ChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: second, validationRecord: v2.validationRecord, actor: owner, now: '2026-09-11T00:02:00Z' });
+              } catch (e) { stale = e; }
+              assert.equal(stale && stale.code, 'STALE_CHANGESET');
+
+              const file = await api(`/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`);
+              const stored = ChangeSet.validateAggregate(JSON.parse(Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf8')));
+              assert.equal(stored.revision, 2);
+              assert.deepEqual(stored.architecture.architectureNodes.map(x => x.id), ['node:first']);
+              assert.equal(stored.appliedChangeSets.length, 1);
+              assert.equal(stored.auditEvents.length, 1);
+              assert.equal(stored.outbox.length, 1);
+
+              const replay = await ChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: first, validationRecord: v1.validationRecord, actor: owner, now: '2026-09-11T00:03:00Z' });
+              assert.equal(replay.status, 'IDEMPOTENT_REPLAY');
+              const afterReplay = await api(`/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`);
+              const current = ChangeSet.validateAggregate(JSON.parse(Buffer.from(afterReplay.content.replace(/\n/g, ''), 'base64').toString('utf8')));
+              assert.equal(current.appliedChangeSets.length, 1);
+              assert.equal(current.auditEvents.length, 1);
+              assert.equal(current.outbox.length, 1);
+
+              const reused = ChangeSet.createChangeSet({
+                id: 'changeset:a04:e2e:reused', projectId: current.projectId, idempotencyKey: first.idempotencyKey,
+                baseRevision: current.revision, baseBlobSha: afterReplay.sha, createdBy: owner,
+                operations: [{ type: 'ADD_NODE', id: 'node:other', name: 'Other' }], preconditions: []
+              });
+              const fakeValidation = { ...v1.validationRecord, changeSetId: reused.id, payloadHash: reused.payloadHash, baseRevision: reused.baseRevision, baseBlobSha: reused.baseBlobSha };
+              let keyReuse = null;
+              try {
+                await ChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: reused, validationRecord: fakeValidation, actor: owner, now: '2026-09-11T00:04:00Z' });
+              } catch (e) { keyReuse = e; }
+              assert.equal(keyReuse && keyReuse.code, 'IDEMPOTENCY_KEY_REUSED');
+
+              const observation = {
+                sourceSha, branch, path, appliedCommitSha: applied.commitSha, appliedBlobSha: applied.blobSha,
+                finalRevision: current.revision, nodeIds: current.architecture.architectureNodes.map(x => x.id),
+                appliedChangeSets: current.appliedChangeSets.length, auditEvents: current.auditEvents.length, outbox: current.outbox.length,
+                staleRejected: true, idempotentReplay: true, idempotencyReuseRejected: true
+              };
+              require('node:fs').writeFileSync('a04-observation.json', JSON.stringify(observation, null, 2));
+              console.log(JSON.stringify(observation));
+            } finally {
+              await api(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'DELETE' });
+              console.log(`TEMP BRANCH DELETED ${branch}`);
+            }
+          })().catch(e => { console.error(e.stack || e); process.exit(1); });
+          NODE
+      - name: Upload A-04 observation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsugu-a04-observation
+          path: a04-observation.json
+          if-no-files-found: ignore

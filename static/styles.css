@@ -12,3 +12,4 @@
 .item-id{font-size:11px;color:#4b5563}
 .pager{display:flex;justify-content:space-between;gap:10px;margin-top:14px}
 @media(max-width:900px){.workspace-sticky{top:0}.workspace-sticky .actions{gap:6px}.workspace-sticky .actions button{min-height:44px}.item-tools{grid-template-columns:1fr}.item-result-head{align-items:flex-start;flex-direction:column}.item-card-compact .item-row{align-items:stretch;flex-direction:column}.item-card-compact .inline-actions button{min-height:44px}.pager button{flex:1}}
+.item-tools input,.item-tools select{min-height:44px}

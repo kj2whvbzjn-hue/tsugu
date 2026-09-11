@@ -133,14 +133,14 @@ jobs:
           retention-days: 14
 
   signal:
-    name: Signal Work relay after verification
+    name: Signal supervisor after verification
     needs: verify
     if: ${{ always() && github.event.pull_request.head.ref == 'automation/chatgpt-loop' && needs.verify.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: Post one resume-ready comment for this SHA
+      - name: Post one supervisor-ready comment for this SHA
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -149,25 +149,25 @@ jobs:
           VERIFY_RESULT: ${{ needs.verify.result }}
         run: |
           set -euo pipefail
-          marker="<!-- CHATGPT_RESUME_READY:${HEAD_SHA} -->"
+          marker="<!-- TSUGU_SUPERVISOR_READY:${HEAD_SHA} -->"
 
           if gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
-            echo "Resume signal already exists for ${HEAD_SHA}; skipping duplicate."
+            echo "Supervisor signal already exists for ${HEAD_SHA}; skipping duplicate."
             exit 0
           fi
 
-          cat > /tmp/chatgpt-resume-comment.md <<EOF
+          cat > /tmp/tsugu-supervisor-comment.md <<EOF
           ${marker}
-          ## ChatGPT resume ready
+          ## TSUGU supervisor ready
 
-          The verification run for the current ChatGPT development commit has finished.
+          Verification for the current work commit has reached a terminal result.
 
           - Head branch: \`automation/chatgpt-loop\`
           - Head SHA: \`${HEAD_SHA}\`
           - Verification: **${VERIFY_RESULT}**
           - Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
 
-          Relay only: Work should open the designated TSUGU development chat, send \`再開\` together with this SHA and verification result, and then stop. Work must not edit code, commit, push, or perform development work.
+          Relay only: Work task A should open the existing ChatGPT conversation titled \`監督チャット\`, send the supervisor resume message with this SHA/result/Actions URL, then stop. It must not edit code, commit, push, merge, or make development decisions.
           EOF
 
-          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/chatgpt-resume-comment.md
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/tsugu-supervisor-comment.md

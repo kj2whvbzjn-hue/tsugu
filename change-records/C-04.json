@@ -1,0 +1,73 @@
+{
+  "taskId": "C-04",
+  "title": "UI/使用性テストと操作効率検証",
+  "status": "FAIL_UI_REDESIGN_REQUIRED",
+  "date": "2026-09-12",
+  "startSha": "0c66b549cc60a9f741f025ec208ddc0483ef25b9",
+  "branch": "vnext-c04-ui-usability-20260912",
+  "pullRequest": 25,
+  "frozenPlan": {
+    "path": "static/c04-ui-usability-plan.json",
+    "version": 1,
+    "status": "FROZEN_BEFORE_EXECUTION",
+    "note": "The original criteria remain preserved. User subsequently rejected the absolute vertical travel observed by the test; the historical plan is not rewritten after execution."
+  },
+  "humanUsabilityDecision": {
+    "verticalTraversal": "FAIL",
+    "reason": "Absolute vertical travel is unacceptable even though direction-reversal counts were within the original frozen budget."
+  },
+  "deleteReloadVerification": {
+    "status": "FAIL_USER_VISIBLE_RELOAD",
+    "evidenceRunId": 34657670861,
+    "evidenceJobId": 103453470720,
+    "firstDelete": {
+      "githubProjectCount": 1,
+      "visibleProjectCount": 1,
+      "result": "PASS",
+      "note": "After deleting the 196-item workload, both GitHub and the visible project list converged from 2 to 1 and only the C-04 plan remained."
+    },
+    "finalDelete": {
+      "githubProjectCount": 0,
+      "visibleProjectCountAfter30Seconds": 2,
+      "visibleStaleProjects": [
+        "C-04 UI負荷・使用性テスト 196項目（取込）",
+        "C-04 UI/使用性テスト計画 v1（取込）"
+      ],
+      "result": "FAIL"
+    },
+    "rootCause": {
+      "type": "STALE_ASYNC_LOAD_OVERWRITE",
+      "summary": "An older in-flight loadRecords result can overwrite newer state after delete/reload because loadRecords applies state.records without a latest-generation guard and deleteProject does not invalidate older record loads.",
+      "proof": [
+        "The first delete converged to one visible project.",
+        "The final delete reduced GitHub Contents API project count to zero.",
+        "After the zero-state reload, both previously deleted project cards reappeared visibly, which can only be reconstructed from an earlier two-row load result.",
+        "The current loadRecords implementation always assigns state.records=rows and has no request generation, cancellation, or latest-wins check."
+      ]
+    }
+  },
+  "uiImprovementProposal": {
+    "status": "PROPOSED_NOT_YET_IMPLEMENTED",
+    "goals": [
+      "Reduce absolute mobile/desktop vertical travel, not merely scroll-direction reversals.",
+      "Make primary project actions and tabs reachable without returning through tens of thousands of pixels.",
+      "Make any one of 196 items directly reachable without traversing all preceding cards."
+    ],
+    "candidateChanges": [
+      "Replace the full mobile sidebar stack with a compact workspace header plus project/action drawer.",
+      "Keep project actions and the Overview/Items/AI handoff/Advanced JSON tabs sticky within the usable viewport.",
+      "Add item search by ID/title plus kind/status filters.",
+      "Replace 196 continuously expanded cards with compact rows and progressive disclosure, backed by pagination or virtualization.",
+      "Provide direct jump to an item and grouped status/issue shortcuts.",
+      "Keep Core sync and Stage B guide collapsed so they do not occupy primary interaction space."
+    ],
+    "proposedNextAcceptance": [
+      "A primary task must not require traversal through the complete item corpus.",
+      "Any item must be reachable using search/filter/jump without scrolling through prior items.",
+      "Primary actions and tabs remain accessible within at most one viewport of return travel.",
+      "Absolute vertical travel will be measured and capped in the C-04 v2 plan before retest."
+    ]
+  },
+  "nextTask": "C-04-UI-REPAIR-AND-RETEST",
+  "blocker": "Do not start D-01 until C-04 user-visible delete/reload and revised vertical-traversal acceptance pass."
+}

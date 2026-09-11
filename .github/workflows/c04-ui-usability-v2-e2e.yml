@@ -42,7 +42,7 @@ jobs:
           base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-app.js
           node --check /tmp/c04-app.js
           grep -q "cache:'no-store'" /tmp/c04-app.js
-          grep -q 'const pageSize=10' /tmp/c04-app.js
+          grep -q 'const pageSize=8' /tmp/c04-app.js
           grep -q 'id="itemSearch"' /tmp/c04-app.js
           grep -q 'id="itemKindFilter"' /tmp/c04-app.js
           grep -q 'id="itemStatusFilter"' /tmp/c04-app.js

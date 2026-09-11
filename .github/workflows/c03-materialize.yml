@@ -1,0 +1,51 @@
+name: C-03 Materialize
+
+on:
+  push:
+    branches: [vnext-c03-20260912]
+    paths:
+      - 'c03-payload.b64'
+      - '.github/workflows/c03-materialize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout C-03 branch
+        uses: actions/checkout@v6
+        with:
+          ref: vnext-c03-20260912
+      - name: Expand verified payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode c03-payload.b64 > /tmp/c03-payload.tgz
+          tar -xzf /tmp/c03-payload.tgz
+          rm c03-payload.b64
+      - name: Verify C-03 recovery contracts with real A-05 modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check static/core-sync-recovery.js
+          node --check tests/core-sync-recovery.test.cjs
+          node --check scripts/c03-load-probe.cjs
+          node --test tests/core-sync-recovery.test.cjs
+          mkdir -p /tmp/c03-evidence
+          node scripts/c03-load-probe.cjs docs/TSUGU_CORE_VNEXT_C03_LOAD_PROFILE.json /tmp/c03-evidence/load.json >/tmp/c03-load.log
+          node - <<'NODE'
+          const e=require('/tmp/c03-evidence/load.json');
+          if(e.profile.approved!==false||e.assessment.status!=='AWAITING_PROFILE_APPROVAL') throw new Error('provisional load profile must not become acceptance PASS');
+          NODE
+      - name: Commit validated non-workflow files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add static/core-sync-recovery.js tests/core-sync-recovery.test.cjs scripts/c03-load-probe.cjs docs/TSUGU_CORE_VNEXT_C03.md docs/TSUGU_CORE_VNEXT_C03_LOAD_PROFILE.json static/index.html change-records/C-03.json c03-payload.b64
+          git commit -m 'C-03: materialize verified sync recovery implementation'
+          git push origin HEAD:vnext-c03-20260912

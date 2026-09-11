@@ -2,12 +2,12 @@
   "type": "TSUGUUIUsabilityAcceptancePlan",
   "taskId": "C-04",
   "version": 2,
-  "title": "UI/使用性テスト v2 — 絶対移動量・直接到達・削除再読込",
+  "title": "UI/使用性テスト v2 — viewport基準の直接到達・上下移動・削除再読込",
   "status": "FROZEN_BEFORE_EXECUTION",
   "basis": [
     "User explicitly rejected the v1 vertical traversal result as unusable.",
-    "v1 measured approximately 26,489px down and 26,601px return travel on 390x844 mobile for the 196-item workload.",
-    "Current renderItems expands the full corpus including body text and has no search/filter/paging controls.",
+    "v1 measured approximately 26,489px down and 26,601px return travel on 390x844 mobile for the 196-item workload; those historical values are failure evidence only and are not acceptance limits.",
+    "User approved viewport-relative limits before v2 execution: known-target lookup <= 2 viewports, target-to-primary-action <= 1 viewport, one objective flow <= 3 viewports, repeated re-traversal = 0.",
     "Delete/reload diagnosis showed GitHub Contents API can be fresh while browser UI reuses a stale GitHub GET response; a cache:no-store GET candidate eliminated the stale restore in run 34658311864."
   ],
   "target": {
@@ -20,9 +20,10 @@
     {"id": "desktop", "width": 1440, "height": 1000}
   ],
   "principles": [
-    "These v2 criteria are frozen before the UI repair is implemented and are not relaxed after observing results.",
+    "These v2 criteria are frozen before execution and are not relaxed after observing results.",
     "A large corpus must not require traversal through preceding items to reach a known item.",
     "Absolute vertical travel is an acceptance criterion; low direction-reversal counts alone are insufficient.",
+    "24,000px-class traversal is retained only as historical FAIL evidence and is never an allowed threshold.",
     "Storage truth and visible UI truth must converge after save, reload, and delete.",
     "Approval/completion state must not be inferred or modified by the usability test."
   ],
@@ -55,8 +56,9 @@
         "TASK-090 is the only matching row for exact ID search",
         "CHECK-34 is the only matching row for exact ID search",
         "neither lookup scrolls through predecessor rows",
-        "mobile cumulative vertical travel for each lookup objective <= 2532px",
-        "desktop cumulative vertical travel for each lookup objective <= 2000px"
+        "target lookup cumulative vertical travel <= 2 viewport heights",
+        "mobile target lookup cumulative vertical travel <= 1688px",
+        "desktop target lookup cumulative vertical travel <= 2000px"
       ]
     },
     {
@@ -76,12 +78,23 @@
       "actions": ["work in item list", "invoke project save or switch project tab"],
       "pass": [
         "primary project actions and project tabs remain visible/reachable while item rows are scrolled",
-        "return travel required to reach a primary project action <= one viewport height",
+        "target-to-primary-action vertical travel <= 1 viewport height",
         "sticky controls do not obscure the active item row or modal trigger"
       ]
     },
     {
       "id": "UI2-05",
+      "name": "One-objective vertical travel budget",
+      "pass": [
+        "each representative objective flow from target discovery through action completion uses cumulative vertical travel <= 3 viewport heights",
+        "mobile objective-flow cumulative vertical travel <= 2532px",
+        "desktop objective-flow cumulative vertical travel <= 3000px",
+        "same range is not returned through and traversed again for the same objective",
+        "down-up-down or up-down-up oscillation for one objective = 0"
+      ]
+    },
+    {
+      "id": "UI2-06",
       "name": "Delete and reload storage/UI convergence",
       "actions": ["save two test projects", "reload", "delete selected workload", "reload", "delete remaining plan", "reload"],
       "pass": [
@@ -92,19 +105,12 @@
       ]
     },
     {
-      "id": "UI2-06",
-      "name": "Navigation and operation efficiency",
+      "id": "UI2-07",
+      "name": "Navigation and interaction quality",
       "pass": [
         "unintended full-document navigation = 0",
         "same-purpose consecutive duplicate clicks = 0",
-        "no down-up-down or up-down-up scrolling oscillation for one objective",
-        "no objective requires full-corpus vertical traversal"
-      ]
-    },
-    {
-      "id": "UI2-07",
-      "name": "Mobile and desktop interaction quality",
-      "pass": [
+        "no objective requires full-corpus vertical traversal",
         "primary interactive touch targets are at least 44x44 CSS px on mobile",
         "fixed/sticky overlays do not cover the center point of active controls",
         "search/filter/pager remain usable at both viewports"
@@ -125,15 +131,20 @@
     "maxVisibleItemRows": 20,
     "mobileDefaultItemPageMaxViewportHeights": 4,
     "desktopDefaultItemPageMaxViewportHeights": 3,
-    "mobilePerLookupCumulativeVerticalTravelPx": 2532,
-    "desktopPerLookupCumulativeVerticalTravelPx": 2000,
-    "primaryActionReturnTravelMaxViewportHeights": 1,
+    "targetLookupMaxViewportHeights": 2,
+    "mobileTargetLookupMaxPx": 1688,
+    "desktopTargetLookupMaxPx": 2000,
+    "targetToPrimaryActionMaxViewportHeights": 1,
+    "objectiveFlowMaxViewportHeights": 3,
+    "mobileObjectiveFlowMaxPx": 2532,
+    "desktopObjectiveFlowMaxPx": 3000,
+    "sameRangeRetraversalsPerObjective": 0,
+    "verticalOscillationTriplesPerObjective": 0,
     "unintendedDocumentNavigations": 0,
     "samePurposeConsecutiveDuplicateClicks": 0,
-    "verticalOscillationTriplesPerObjective": 0,
     "runtimeUnhandledPageErrors": 0,
     "runtimeUnexpectedApi4xx5xx": 0,
     "runtimeUnexpectedConsoleErrors": 0
   },
-  "resultRule": "All UI2-01 through UI2-08 must PASS. The historical v1 SUCCESS cannot override the user's explicit vertical-usability FAIL."
+  "resultRule": "All UI2-01 through UI2-08 must PASS. Historical 24,000px-class v1 traversal is FAIL evidence only and cannot satisfy any v2 budget."
 }

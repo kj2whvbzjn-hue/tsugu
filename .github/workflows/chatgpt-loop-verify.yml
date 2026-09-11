@@ -1,0 +1,173 @@
+name: ChatGPT Loop Verification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: chatgpt-loop-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: ${{ github.event.pull_request.head.ref == 'automation/chatgpt-loop' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact TSUGU head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Record verification target
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          {
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "pr=${{ github.event.pull_request.number }}"
+            echo "head_ref=${{ github.event.pull_request.head.ref }}"
+            echo "head_sha=${{ github.event.pull_request.head.sha }}"
+            echo "checked_out_sha=$(git rev-parse HEAD)"
+          } | tee artifacts/verification-target.txt
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Run TSUGU unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in tests/*.test.cjs; do
+            echo "==> ${test_file}"
+            node --test "${test_file}"
+          done 2>&1 | tee artifacts/unit-tests.log
+
+      - name: Build local TSUGU site
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          find static -maxdepth 1 -type f ! -name 'app.js.gz.b64' -exec cp '{}' _site/ \;
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
+          for file in _site/*.js; do
+            node --check "$file"
+          done
+
+      - name: Checkout browser-agent verifier
+        uses: actions/checkout@v6
+        with:
+          repository: kj2whvbzjn-hue/browser-agent
+          ref: main
+          path: browser-agent
+          persist-credentials: false
+
+      - name: Install browser-agent dependencies
+        working-directory: browser-agent
+        run: npm install
+
+      - name: Install Chromium
+        working-directory: browser-agent
+        run: npx playwright install --with-deps chromium
+
+      - name: Start local TSUGU server
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory _site > artifacts/tsugu-server.log 2>&1 &
+          echo $! > artifacts/tsugu-server.pid
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat artifacts/tsugu-server.log
+          exit 1
+
+      - name: Create Playwright smoke task
+        shell: bash
+        run: |
+          cat > artifacts/chatgpt-loop-task.json <<'JSON'
+          {
+            "outputDir": "artifacts",
+            "viewport": { "width": 1440, "height": 900 },
+            "dialogPolicy": "dismiss",
+            "steps": [
+              { "action": "goto", "url": "http://127.0.0.1:4173/", "waitUntil": "domcontentloaded", "label": "open-tsugu-local" },
+              { "action": "wait", "ms": 1500, "label": "settle-tsugu" },
+              { "action": "assertUrl", "url": "http://127.0.0.1:4173/", "label": "assert-tsugu-url" },
+              { "action": "dumpPage", "name": "chatgpt-loop-page" },
+              { "action": "screenshot", "name": "chatgpt-loop-final" }
+            ]
+          }
+          JSON
+
+      - name: Run Playwright through browser-agent
+        run: node browser-agent/scripts/run-task.mjs artifacts/chatgpt-loop-task.json
+
+      - name: Generate browser-agent report
+        if: always()
+        run: node browser-agent/scripts/generate-report.mjs artifacts/chatgpt-loop-task.json
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-loop-${{ github.event.pull_request.head.sha }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  signal:
+    name: Signal Work relay after verification
+    needs: verify
+    if: ${{ always() && github.event.pull_request.head.ref == 'automation/chatgpt-loop' && needs.verify.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Post one resume-ready comment for this SHA
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          set -euo pipefail
+          marker="<!-- CHATGPT_RESUME_READY:${HEAD_SHA} -->"
+
+          if gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
+            echo "Resume signal already exists for ${HEAD_SHA}; skipping duplicate."
+            exit 0
+          fi
+
+          cat > /tmp/chatgpt-resume-comment.md <<EOF
+          ${marker}
+          ## ChatGPT resume ready
+
+          The verification run for the current ChatGPT development commit has finished.
+
+          - Head branch: \`automation/chatgpt-loop\`
+          - Head SHA: \`${HEAD_SHA}\`
+          - Verification: **${VERIFY_RESULT}**
+          - Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          Relay only: Work should open the designated TSUGU development chat, send \`再開\` together with this SHA and verification result, and then stop. Work must not edit code, commit, push, or perform development work.
+          EOF
+
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/chatgpt-resume-comment.md

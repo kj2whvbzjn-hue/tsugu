@@ -5,7 +5,7 @@
     "b05ResultCommit": "075d90bbe4746873590c79e9ba464e432916e8ea",
     "projectRevision": null
   },
-  "resultCommit": null,
+  "resultCommit": "d752f975c11b0051414c593dade910f1bd24110d",
   "scope": [
     "Assurance exact subject/RequirementSnapshot/target evaluation",
     "monotonic evaluation generation and conservative invalidation",
@@ -41,10 +41,14 @@
   "verificationEvidence": [
     "local isolated B-06 contract suite: 8/8 PASS",
     "node --check core-assurance-event.js/core-task-execution.js/core-assurance-event-changeset.js: PASS locally",
-    "real B-03/B-04 integration, deployment and repository-integrated E2E: pending GitHub Actions"
+    "B-06 materialization run 34613449731 against real B-03/B-04 cores: SUCCESS",
+    "Deploy TSUGU run 34614118774 for result commit d752f975c11b0051414c593dade910f1bd24110d: SUCCESS",
+    "TSUGU Assurance Event E2E run 34614155524: SUCCESS",
+    "B-06 E2E Verify B-06 contracts step: SUCCESS",
+    "B-06 E2E Verify published modules and atomic GitHub Assurance/Task flow step: SUCCESS"
   ],
-  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
-  "completedAt": null,
+  "status": "PASS",
+  "completedAt": "2026-09-11T15:06:51Z",
   "nextTask": "B-07",
   "rollbackPlan": "Revert the B-06 source commit. B-06 is additive and leaves B-03/B-04/B-05 persisted formats intact."
 }

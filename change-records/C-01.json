@@ -1,0 +1,45 @@
+{
+  "taskId": "C-01",
+  "baseline": {
+    "gitCommit": "9cc27e5301bf7d359028f1ba51819ef3813d3c80",
+    "b07ResultCommit": "9cc27e5301bf7d359028f1ba51819ef3813d3c80",
+    "projectRevision": null
+  },
+  "resultCommit": null,
+  "scope": [
+    "derived Impact Graph over current Stage B Rule/Test, Box and Architecture state",
+    "IMPLEMENTS TESTS CONFIGURES MIGRATES relation-specific propagation",
+    "stable PathEntry based ActualChange impact targeting",
+    "RuleDefinition RuleBinding ArchitectureBinding TestDefinition change facts",
+    "mapped deletion and explicit rename handling",
+    "related Project/Repository/Architecture Full test fallback for indeterminate changes"
+  ],
+  "acceptance": [
+    "four ArchitectureBinding relations identify impacted active TestRequirements independently",
+    "TESTS changes only retest matched requirements/test definitions and do not automatically stale unrelated implementation assurance",
+    "mapped deletion and explicit MAPPED_RENAME preserve stable PathEntry relation targeting",
+    "UNMAPPED CONFIRMATION_REQUIRED UNKNOWN missing Binding and unclassified changes require an explicit related-scope Full test",
+    "RuleDefinition and RuleBinding changes use exact effective-rule provenance when available",
+    "ArchitectureBinding retarget evaluates both previous and current scopes",
+    "TestDefinition changes affect only requirements fixed to the matching test definition/version",
+    "Impact Graph is deterministic hash-fixed non-mutating and rejects cross-Project inputs"
+  ],
+  "plannedFiles": [
+    "static/core-impact-graph.js",
+    "tests/core-impact-graph.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/impact-graph-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_C01.md",
+    "change-records/C-01.json"
+  ],
+  "verificationEvidence": [
+    "node --check core-impact-graph.js and core-impact-graph.test.cjs: PASS locally",
+    "relation-aware contract suite: pending GitHub Actions",
+    "published module and real GitHub B-05 compare to C-01 Impact Graph flow: pending post-deploy GitHub Actions"
+  ],
+  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
+  "completedAt": null,
+  "nextTask": "C-02",
+  "rollbackPlan": "Revert the C-01 source commit. C-01 is a derived read-only impact calculation and does not migrate or weaken Stage B persisted domain state."
+}

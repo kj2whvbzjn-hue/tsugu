@@ -1,0 +1,51 @@
+name: TSUGU C-04 Source Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/c04-source-diagnostic.yml'
+      - 'static/app.js.gz.b64'
+      - 'tests/c04-ui-usability.e2e.cjs.gz.b64.part*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - name: Decode app and print C-04 repair anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/app.js
+          node --check /tmp/app.js
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/app.js').read_text()
+          for needle in ['function renderConnect','function renderSidebar','async function gh','function renderItems','function renderMain','function render()']:
+              print(f'===== APP {needle} =====')
+              i=s.find(needle)
+              if i < 0:
+                  print('NOT FOUND')
+              else:
+                  print(s[max(0,i-1800):min(len(s),i+7000)])
+          PY
+      - name: Decode v1 Playwright and print reusable helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tests/c04-ui-usability.e2e.cjs.gz.b64.part00 \
+              tests/c04-ui-usability.e2e.cjs.gz.b64.part01 \
+              tests/c04-ui-usability.e2e.cjs.gz.b64.part02 \
+              tests/c04-ui-usability.e2e.cjs.gz.b64.part03 \
+              tests/c04-ui-usability.e2e.cjs.gz.b64.part04 \
+            | base64 --decode | gzip --decompress > /tmp/c04-v1.cjs
+          node --check /tmp/c04-v1.cjs
+          echo '===== V1 lines 1-180 ====='
+          nl -ba /tmp/c04-v1.cjs | sed -n '1,180p'

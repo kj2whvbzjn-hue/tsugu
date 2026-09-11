@@ -1,0 +1,135 @@
+{
+  "taskId": "C-04",
+  "title": "UI/使用性テストと操作効率検証",
+  "status": "CANDIDATE_PASS_AWAITING_PUBLISHED_VERIFICATION",
+  "date": "2026-09-12",
+  "startSha": "0c66b549cc60a9f741f025ec208ddc0483ef25b9",
+  "branch": "vnext-c04-ui-usability-20260912",
+  "pullRequest": 25,
+  "historicalV1": {
+    "planPath": "static/c04-ui-usability-plan.json",
+    "status": "FAIL_PRESERVED",
+    "humanDecision": "Vertical traversal is unacceptable even though direction-reversal counts were inside the original v1 budget.",
+    "observed": {
+      "mobileDownPxApprox": 26489,
+      "mobileReturnPxApprox": 26601
+    },
+    "rule": "The v1 FAIL is preserved as historical evidence and cannot be converted to PASS by later criteria."
+  },
+  "frozenV2Plan": {
+    "path": "static/c04-ui-usability-plan-v2.json",
+    "version": 2,
+    "status": "FROZEN_BEFORE_EXECUTION",
+    "criteriaCommit": "55b83c7f10cd34bd3c1c6e0ce12157e191d2f08d",
+    "humanApprovedBudgets": {
+      "knownTargetLookupMaxViewportHeights": 2,
+      "mobileKnownTargetLookupMaxPx": 1688,
+      "desktopKnownTargetLookupMaxPx": 2000,
+      "targetToPrimaryActionMaxViewportHeights": 1,
+      "oneObjectiveFlowMaxViewportHeights": 3,
+      "mobileOneObjectiveFlowMaxPx": 2532,
+      "desktopOneObjectiveFlowMaxPx": 3000,
+      "sameRangeRetraversalsPerObjective": 0,
+      "verticalOscillationTriplesPerObjective": 0,
+      "unintendedDocumentNavigations": 0,
+      "samePurposeConsecutiveDuplicateClicks": 0
+    },
+    "note": "The historical 24,000px-class travel is failure evidence only and is not an acceptance threshold."
+  },
+  "implementedUiRepair": {
+    "items": [
+      "Search items by ID or title.",
+      "Filter by kind and status.",
+      "Render compact item rows without expanded body text by default.",
+      "Bound the item view to 8 rows per page, stricter than the v2 maximum of 20.",
+      "Provide previous/next paging without document navigation.",
+      "Keep project actions and project tabs in a sticky workspace control area.",
+      "Keep mobile item search/filter controls at least 44 CSS px high."
+    ]
+  },
+  "deleteReloadVerification": {
+    "status": "CANDIDATE_PASS",
+    "historicalFailureRun": 34657670861,
+    "rootCauseIsolation": {
+      "initialHypothesis": "STALE_ASYNC_LOAD_OVERWRITE",
+      "initialHypothesisResult": "REJECTED_AS_SOLE_CAUSE",
+      "experiment": [
+        "A latest-wins/load-generation guard alone still reproduced the stale restore.",
+        "A GitHub GET cache:no-store candidate without a latest-wins guard passed the same delete/reload sequence."
+      ],
+      "finalRootCause": "BROWSER_REUSE_OF_STALE_GITHUB_CONTENTS_GET_RESPONSE",
+      "repair": "GitHub GET operations in the product gh() helper explicitly use fetch cache:'no-store'.",
+      "isolationPassRun": 34658311864
+    },
+    "v2Result": {
+      "afterFirstDelete": {"githubProjectCount": 1, "visibleProjectCount": 1},
+      "afterFinalDelete": {"githubProjectCount": 0, "visibleProjectCount": 0},
+      "stableAfter5Seconds": true
+    }
+  },
+  "candidateVerification": {
+    "headSha": "ea0cac5b0ac4e40eef1665a57a1a201c2f6f8eb1",
+    "workflowRunId": 34659672296,
+    "workflowJobId": 103459391226,
+    "result": "PASS",
+    "artifact": {
+      "id": 10285894780,
+      "name": "c04-ui-usability-v2-evidence-34659672296",
+      "sha256": "9978e4f9d387b974402f9866a28271035bc06bdfe750606cd0a056d78abde452"
+    },
+    "measurements": {
+      "mobile": {
+        "viewport": "390x844",
+        "visibleItemRows": 8,
+        "documentHeightPx": 3114,
+        "documentHeightViewportRatio": 3.68957345971564,
+        "TASK-090LookupTravelPx": 0,
+        "TASK-090TargetToPrimaryTravelPx": 0,
+        "TASK-090ObjectiveFlowPx": 0,
+        "CHECK-34LookupTravelPx": 0,
+        "CHECK-34TargetToPrimaryTravelPx": 0,
+        "CHECK-34ObjectiveFlowPx": 0
+      },
+      "desktop": {
+        "viewport": "1440x1000",
+        "visibleItemRows": 8,
+        "documentHeightPx": 1544,
+        "documentHeightViewportRatio": 1.544,
+        "TASK-090LookupTravelPx": 544,
+        "TASK-090TargetToPrimaryTravelPx": 0,
+        "TASK-090ObjectiveFlowPx": 544,
+        "CHECK-34LookupTravelPx": 544,
+        "CHECK-34TargetToPrimaryTravelPx": 0,
+        "CHECK-34ObjectiveFlowPx": 544
+      },
+      "sameRangeRetraversals": 0,
+      "unintendedDocumentNavigations": 0,
+      "samePurposeConsecutiveDuplicateClicks": 0,
+      "runtimeConsoleErrors": 0,
+      "runtimePageErrors": 0,
+      "runtimeUnexpectedApiErrors": 0,
+      "filterCounts": {"checkKind": 34, "todoStatus": 112}
+    },
+    "scenarios": {
+      "UI2-01": "PASS",
+      "UI2-02": "PASS",
+      "UI2-03": "PASS",
+      "UI2-04": "PASS",
+      "UI2-05": "PASS",
+      "UI2-06": "PASS",
+      "UI2-07": "PASS",
+      "UI2-08": "PASS"
+    },
+    "sameHeadRegressions": {
+      "stageB": {"runId": 34659672281, "result": "PASS"},
+      "impactGraphC01": {"runId": 34659672305, "result": "PASS"},
+      "architectureHealthC02": {"runId": 34659672356, "result": "PASS"},
+      "syncRecoveryC03": {"runId": 34659672262, "result": "PASS"}
+    }
+  },
+  "publishedVerification": {
+    "status": "PENDING_AFTER_MERGE_AND_DEPLOY"
+  },
+  "nextTask": "C-04-PUBLISHED-VERIFY",
+  "blocker": "Do not start D-01 until the merged candidate is deployed and the same frozen v2 Playwright acceptance passes against published GitHub Pages."
+}

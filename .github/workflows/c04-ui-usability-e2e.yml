@@ -99,18 +99,29 @@ jobs:
           base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
           rm -f _site/app.js.gz.b64
           node --check _site/app.js
+
+          # Candidate repair: make record loads latest-wins and invalidate older loads on delete.
+          # This intentionally does NOT change fetch cache behavior, so the run isolates the async-overwrite hypothesis.
           python3 - <<'PY'
           from pathlib import Path
-          s=Path('_site/app.js').read_text()
-          for needle in ['async function gh', 'function gh', 'GitHubから', '読み込みました']:
-              print(f'--- APP SOURCE AROUND {needle} ---')
-              start=0
-              for n in range(5):
-                  i=s.find(needle,start)
-                  if i<0: break
-                  print(s[max(0,i-1200):min(len(s),i+1800)])
-                  start=i+len(needle)
+          p=Path('_site/app.js')
+          s=p.read_text()
+          old="async function loadRecords(){state.loading=true;state.message=null;render();try{await ensureDataBranch();const {owner,repo,branch}=state.repo;const list=await gh(`/repos/${owner}/${repo}/contents/data/projects?ref=${encodeURIComponent(branch)}`,{},true);const files=(Array.isArray(list)?list:[]).filter(f=>f.type==='file'&&f.name.endsWith('.json')).slice(0,200);const rows=[];for(let i=0;i<files.length;i+=8){const batch=files.slice(i,i+8);const loaded=await Promise.all(batch.map(f=>gh(`/repos/${owner}/${repo}/contents/${f.path}?ref=${encodeURIComponent(branch)}`)));for(const file of loaded){try{rows.push(parseRecordFile(file))}catch(e){console.warn(e)}}}rows.sort((a,b)=>String(b.record.updatedAt).localeCompare(String(a.record.updatedAt)));state.records=rows;if(state.active){const fresh=rows.find(x=>x.record.project.id===state.active.project.id);if(fresh&&!isDirty())openLoaded(fresh)}state.message={type:'success',text:`GitHubから${rows.length}件を読み込みました`}}catch(e){state.message={type:'error',text:e.message}}finally{state.loading=false;render()}}"
+          new="let recordLoadGeneration=0;async function loadRecords(){const generation=++recordLoadGeneration;state.loading=true;state.message=null;render();try{await ensureDataBranch();const {owner,repo,branch}=state.repo;const list=await gh(`/repos/${owner}/${repo}/contents/data/projects?ref=${encodeURIComponent(branch)}`,{},true);const files=(Array.isArray(list)?list:[]).filter(f=>f.type==='file'&&f.name.endsWith('.json')).slice(0,200);const rows=[];for(let i=0;i<files.length;i+=8){const batch=files.slice(i,i+8);const loaded=await Promise.all(batch.map(f=>gh(`/repos/${owner}/${repo}/contents/${f.path}?ref=${encodeURIComponent(branch)}`)));for(const file of loaded){try{rows.push(parseRecordFile(file))}catch(e){console.warn(e)}}}rows.sort((a,b)=>String(b.record.updatedAt).localeCompare(String(a.record.updatedAt)));if(generation!==recordLoadGeneration)return;state.records=rows;if(state.active){const fresh=rows.find(x=>x.record.project.id===state.active.project.id);if(fresh&&!isDirty())openLoaded(fresh)}state.message={type:'success',text:`GitHubから${rows.length}件を読み込みました`}}catch(e){if(generation===recordLoadGeneration)state.message={type:'error',text:e.message}}finally{if(generation===recordLoadGeneration){state.loading=false;render()}}}"
+          if old not in s:
+              raise SystemExit('loadRecords candidate anchor not found')
+          s=s.replace(old,new,1)
+          delete_anchor="async function deleteProject(){if(!state.active||state.active.revision<1||!confirm(`「${state.active.project.name}」をGitHubから削除しますか？\\nGit履歴から復元は可能です。`))return;state.loading=true;render();"
+          delete_new="async function deleteProject(){if(!state.active||state.active.revision<1||!confirm(`「${state.active.project.name}」をGitHubから削除しますか？\\nGit履歴から復元は可能です。`))return;++recordLoadGeneration;state.loading=true;render();"
+          if delete_anchor not in s:
+              raise SystemExit('deleteProject invalidation anchor not found')
+          s=s.replace(delete_anchor,delete_new,1)
+          p.write_text(s)
           PY
+          node --check _site/app.js
+          grep -q 'let recordLoadGeneration=0' _site/app.js
+          grep -q 'generation!==recordLoadGeneration' _site/app.js
+          echo 'C-04 candidate: latest-wins record-load guard enabled; fetch caching unchanged'
 
       - name: Install Playwright Chromium
         run: |

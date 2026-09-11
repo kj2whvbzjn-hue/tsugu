@@ -5,6 +5,7 @@
     "b01ResultCommit": "92b0e488941b1a46e9a1b7387ee414695638c92a",
     "projectRevision": null
   },
+  "resultCommit": "f91a92fc64ea7d02467a9f4cde68333b10930d69",
   "scope": [
     "RuleDefinition and RuleBinding",
     "comparable Rule inheritance/intersection",
@@ -42,12 +43,19 @@
   "verificationEvidence": [
     "node --check core-rule-test.js/core-rule-test-changeset.js: PASS locally",
     "B-02 local isolated contract suite: 14/14 PASS",
-    "Repository-integrated contract suite: pending merge",
-    "Deploy TSUGU: pending merge",
-    "TSUGU Rule Test E2E: pending merge",
-    "Stage A/B-01/A-05 regression workflows: pending merge"
+    "Deploy TSUGU run 34566855622: SUCCESS for f91a92fc64ea7d02467a9f4cde68333b10930d69",
+    "TSUGU Rule Test E2E run 34566880689: SUCCESS; repository-integrated B-02 contracts, published module equality and GitHub Contents API ChangeSet flow passed",
+    "TSUGU Box E2E run 34566880694: SUCCESS",
+    "TSUGU ChangeSet E2E run 34566880650: SUCCESS",
+    "TSUGU Sync E2E run 34566880700: SUCCESS",
+    "TSUGU Architecture E2E run 34566880673: SUCCESS",
+    "TSUGU Core Reference E2E run 34566880653: SUCCESS",
+    "TSUGU E2E run 34566880704: SUCCESS",
+    "github-pages artifact 10186316161 digest sha256:5526d424a30ac71bc7f6d19ef825389a3b1136c7fc0a6a1fbb8fcdfb1276e688",
+    "tsugu-b02-observation artifact 10186325309 digest sha256:1ebc2302e04b779e13297551ec265bf27f7e44b44b65b694470fe8068a4468ec"
   ],
-  "status": "IN_PROGRESS",
+  "status": "PASS",
+  "completedAt": "2026-09-11T05:40:54Z",
   "nextTask": "B-03",
   "rollbackPlan": "Revert the B-02 result commit. B-02 is additive and does not rewrite the current app.js save flow or remove B-01 data. Do not restore retired server runtimes."
 }

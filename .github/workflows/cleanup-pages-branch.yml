@@ -1,0 +1,26 @@
+name: Retire obsolete Pages branch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cleanup-pages-branch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Delete obsolete branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin --delete feat/github-pages-static
+          if git ls-remote --heads origin refs/heads/feat/github-pages-static | grep -q .; then
+            echo 'obsolete branch still exists' >&2
+            exit 1
+          fi
+          echo 'obsolete Pages-specific branch removed'

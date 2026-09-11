@@ -1,4 +1,4 @@
-name: Deploy TSUGU static site to GitHub Pages
+name: Deploy TSUGU
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: github-pages
+  group: tsugu-deploy
   cancel-in-progress: true
 
 jobs:
@@ -26,9 +26,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Configure Pages
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-      - name: Build static artifact
+      - name: Build TSUGU artifact
         shell: bash
         run: |
           set -euo pipefail
@@ -36,12 +36,10 @@ jobs:
           cp static/index.html static/styles.css static/favicon.svg _site/
           base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
           node --check _site/app.js
-      - name: Upload static site
+      - name: Upload TSUGU artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: _site
-      - name: Deploy to GitHub Pages
+      - name: Deploy TSUGU
         id: deployment
         uses: actions/deploy-pages@v4
-
-# 2026-09-11: redeploy after separating public UI and private project data.

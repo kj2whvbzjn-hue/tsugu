@@ -1,16 +1,21 @@
-name: TSUGU Pages E2E Final
+name: TSUGU E2E
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/pages-e2e-final.yml'
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
 
 permissions:
   contents: write
 
+concurrency:
+  group: tsugu-e2e
+  cancel-in-progress: true
+
 jobs:
   e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -20,7 +25,7 @@ jobs:
           npm init -y >/dev/null 2>&1
           npm install --save-dev playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Verify deployed UI can create and persist a project
+      - name: Verify TSUGU create/save/readback
         env:
           GH_TOKEN_E2E: ${{ github.token }}
         run: |
@@ -36,7 +41,7 @@ jobs:
               Accept: 'application/vnd.github+json',
               Authorization: `Bearer ${token}`,
               'X-GitHub-Api-Version': '2022-11-28',
-              'User-Agent': 'tsugu-pages-e2e'
+              'User-Agent': 'tsugu-e2e'
             };
 
             async function api(path, options = {}) {
@@ -56,14 +61,11 @@ jobs:
 
             const before = await projects();
             const beforeNames = new Set(before.map(x => x.name));
-            console.log(`Before: ${before.length} project(s)`);
-
             const browser = await chromium.launch({ headless: true });
             const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
             let created;
             page.on('console', m => console.log(`[browser:${m.type()}] ${m.text()}`));
             page.on('dialog', async d => {
-              console.log(`[dialog:${d.type()}] ${d.message()}`);
               if (d.type() === 'prompt') {
                 const value = d.message().includes('案件名') ? 'Actions E2E' : 'E2E write verification';
                 await d.accept(value);
@@ -142,10 +144,10 @@ jobs:
             }
           })().catch(e => { console.error(e.stack || e); process.exit(1); });
           NODE
-      - name: Upload success screenshot
+      - name: Upload E2E screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tsugu-e2e-final
+          name: tsugu-e2e
           path: tsugu-e2e-success.png
           if-no-files-found: ignore

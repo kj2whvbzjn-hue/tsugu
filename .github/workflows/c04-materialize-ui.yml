@@ -18,7 +18,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
-      - name: Repair C-04 v2 assertion harness
+      - name: Align v2 harness to frozen acceptance plan
         shell: bash
         run: |
           set -euo pipefail
@@ -26,18 +26,65 @@ jobs:
           from pathlib import Path
           p=Path('tests/c04-ui-usability-v2.e2e.cjs')
           s=p.read_text()
-          old="assert.equal((await page.locator('[data-item-row]').evaluateAll(rows=>rows.every(r=>(r.textContent||'').includes('検証'))),true));"
-          new="assert.equal(await page.locator('[data-item-row]').evaluateAll(rows=>rows.every(r=>(r.textContent||'').includes('検証'))),true);"
-          if s.count(old)!=1:
-              raise SystemExit('expected malformed assertion exactly once')
+          old="""async function lookupObjective(page,id,maxTravel){
+  const input=page.locator('#itemSearch');await input.waitFor({state:'visible'});
+  const start=await page.evaluate(()=>window.scrollY);let last=start,travel=0;
+  const sample=async()=>{const y=await page.evaluate(()=>window.scrollY);travel+=Math.abs(y-last);last=y;};
+  await input.fill(id);await sample();await input.press('Enter');await page.waitForTimeout(100);await sample();
+  assert.equal(await visibleItemRows(page),1,`${id}: visible rows`);
+  const row=page.locator(`[data-item-row=\"${id}\"]`);await row.waitFor({state:'visible',timeout:10000});await row.scrollIntoViewIfNeeded();await sample();
+  assert.equal((await row.locator('.item-id').textContent()).trim(),id);
+  const edit=row.locator('[data-edit]');await edit.click();await page.getByText('項目編集',{exact:true}).waitFor();await sample();
+  await page.getByRole('button',{name:'閉じる',exact:true}).click();await sample();
+  assert.ok(travel<=maxTravel,`${id}: travel ${travel} > ${maxTravel}`);
+  return {startY:start,endY:last,travel};
+}"""
+          new="""async function lookupObjective(page,id,lookupMax,objectiveMax){
+  const input=page.locator('#itemSearch');await input.waitFor({state:'visible'});
+  const start=await page.evaluate(()=>window.scrollY);let last=start,travel=0;const positions=[start],dirs=[];
+  const sample=async()=>{const y=await page.evaluate(()=>window.scrollY);const d=y-last;if(Math.abs(d)>=2){travel+=Math.abs(d);dirs.push(d>0?'down':'up');positions.push(y);}last=y;};
+  await input.fill(id);await sample();await input.press('Enter');await page.waitForTimeout(100);await sample();
+  assert.equal(await visibleItemRows(page),1,`${id}: visible rows`);
+  const row=page.locator(`[data-item-row=\"${id}\"]`);await row.waitFor({state:'visible',timeout:10000});await row.scrollIntoViewIfNeeded();await sample();
+  assert.equal((await row.locator('.item-id').textContent()).trim(),id);
+  const lookupTravel=travel;assert.ok(lookupTravel<=lookupMax,`${id}: lookup ${lookupTravel} > ${lookupMax}`);
+  const edit=row.locator('[data-edit]');await edit.click();await page.getByText('項目編集',{exact:true}).waitFor();await sample();
+  await page.getByRole('button',{name:'閉じる',exact:true}).click();await sample();
+  const compactDirs=dirs.filter((d,i,a)=>i===0||a[i-1]!==d);let oscillationTriples=0;for(let i=2;i<compactDirs.length;i++)if(compactDirs[i]===compactDirs[i-2]&&compactDirs[i]!==compactDirs[i-1])oscillationTriples++;
+  const sameRangeRetraversals=oscillationTriples;
+  assert.ok(travel<=objectiveMax,`${id}: objective ${travel} > ${objectiveMax}`);assert.equal(oscillationTriples,0,`${id}: oscillation`);assert.equal(sameRangeRetraversals,0,`${id}: retraversal`);
+  return {startY:start,endY:last,lookupTravel,objectiveTravel:travel,dirs:compactDirs,positions,oscillationTriples,sameRangeRetraversals};
+}"""
+          if s.count(old)!=1: raise SystemExit('lookupObjective anchor mismatch')
           s=s.replace(old,new,1)
+          repl={
+            "plan.budgets.mobilePerLookupCumulativeVerticalTravelPx":"plan.budgets.mobileTargetLookupMaxPx,plan.budgets.mobileObjectiveFlowMaxPx",
+            "plan.budgets.desktopPerLookupCumulativeVerticalTravelPx":"plan.budgets.desktopTargetLookupMaxPx,plan.budgets.desktopObjectiveFlowMaxPx",
+            "plan.budgets.primaryActionReturnTravelMaxViewportHeights":"plan.budgets.targetToPrimaryActionMaxViewportHeights"
+          }
+          for a,b in repl.items():
+              if a not in s: raise SystemExit(f'missing budget anchor {a}')
+              s=s.replace(a,b)
+          oldnav="assert.equal(evidence.navigation.length,0,`unexpected document navigations ${evidence.navigation.length}`);mark('UI2-06','PASS',{unintendedNavigations:0});"
+          newnav="assert.equal(evidence.navigation.length,0,`unexpected document navigations ${evidence.navigation.length}`);"
+          if s.count(oldnav)!=1: raise SystemExit('nav marker anchor mismatch')
+          s=s.replace(oldnav,newnav,1)
+          oldmobile="await page.setViewportSize({width:390,height:844});await noOverflow(page,'mobile final');await touchAtLeast44(page.locator('#itemSearch'),'mobile search final');await page.screenshot({path:'c04-v2-mobile.png',fullPage:true});mark('UI2-07','PASS');"
+          newmobile="await page.setViewportSize({width:390,height:844});await noOverflow(page,'mobile final');await touchAtLeast44(page.locator('#itemSearch'),'mobile search final');await page.screenshot({path:'c04-v2-mobile.png',fullPage:true});mark('UI2-05','PASS',{mobile:evidence.lookups.mobile,desktop:evidence.lookups.desktop});mark('UI2-07','PASS',{unintendedNavigations:0});"
+          if s.count(oldmobile)!=1: raise SystemExit('mobile marker anchor mismatch')
+          s=s.replace(oldmobile,newmobile,1)
+          oldcleanup="evidence.cleanup={afterFirstDelete:afterOne,afterFinalDelete:afterZero,stableAfter5s:true};mark('UI2-05','PASS',evidence.cleanup);"
+          newcleanup="evidence.cleanup={afterFirstDelete:afterOne,afterFinalDelete:afterZero,stableAfter5s:true};mark('UI2-06','PASS',evidence.cleanup);"
+          if s.count(oldcleanup)!=1: raise SystemExit('cleanup marker anchor mismatch')
+          s=s.replace(oldcleanup,newcleanup,1)
           p.write_text(s)
           PY
           node --check tests/c04-ui-usability-v2.e2e.cjs
-          grep -Fq "assert.equal(await page.locator('[data-item-row]').evaluateAll" tests/c04-ui-usability-v2.e2e.cjs
+          grep -q 'mobileTargetLookupMaxPx' tests/c04-ui-usability-v2.e2e.cjs
+          grep -q "mark('UI2-06','PASS',evidence.cleanup)" tests/c04-ui-usability-v2.e2e.cjs
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add tests/c04-ui-usability-v2.e2e.cjs
           git diff --cached --check
-          git commit -m 'C-04: fix v2 filter assertion harness'
+          git commit -m 'C-04: align v2 harness with frozen viewport budgets'
           git push origin HEAD:${{ github.head_ref }}

@@ -1,0 +1,93 @@
+name: TSUGU Assurance Event E2E
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-assurance-event-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Verify B-06 contracts
+        run: node --test tests/core-assurance-event.test.cjs
+      - name: Verify published modules and atomic GitHub Assurance/Task flow
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          E2E_RUN_ID: ${{ github.run_id }}
+          E2E_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-assurance-event.js?run=${E2E_RUN_ID}" -o /tmp/published-core-assurance-event.js
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-task-execution.js?run=${E2E_RUN_ID}" -o /tmp/published-core-task-execution.js
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-assurance-event-changeset.js?run=${E2E_RUN_ID}" -o /tmp/published-core-assurance-event-changeset.js
+          cmp static/core-assurance-event.js /tmp/published-core-assurance-event.js
+          cmp static/core-task-execution.js /tmp/published-core-task-execution.js
+          cmp static/core-assurance-event-changeset.js /tmp/published-core-assurance-event-changeset.js
+          node <<'NODE'
+          (async()=>{
+            const assert=require('node:assert/strict');
+            const G=require('./static/core-governance.js');
+            const C=require('./static/core-check-evidence.js');
+            const A=require('./static/core-assurance-event.js');
+            const T=require('./static/core-task-execution.js');
+            const CS=require('./static/core-assurance-event-changeset.js');
+            const owner='kj2whvbzjn-hue',repo='tsugu',token=process.env.GH_TOKEN_E2E,sourceSha=process.env.SOURCE_SHA;
+            const branch=`b06-e2e-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}`;
+            const evidencePath=`data/e2e/b06-evidence-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}.txt`;
+            const aggregatePath=`data/e2e/b06-aggregate-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}.json`;
+            const headers={Accept:'application/vnd.github+json',Authorization:`Bearer ${token}`,'X-GitHub-Api-Version':'2022-11-28','User-Agent':'tsugu-b06-e2e'};
+            async function api(p,options={},allow404=false){const r=await fetch(`https://api.github.com${p}`,{...options,headers:{...headers,...(options.headers||{})}});const text=await r.text();if(allow404&&r.status===404)return null;if(!r.ok)throw new Error(`GitHub ${r.status}: ${text}`);return text?JSON.parse(text):null;}
+            async function put(path,message,content,sha){return api(`/repos/${owner}/${repo}/contents/${path}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,content:Buffer.from(content).toString('base64'),branch,...(sha?{sha}:{})})});}
+            function ref(type,id,version=1){return{type,id,version,hash:C.sha256(`${type}:${id}:${version}`)};}
+            const actor={id:'github-actions[bot]',subject:'github-actions',kind:'BOT',role:'PROJECT_ADMIN'};
+            const scope={subject:ref('TASK_SUBJECT','subject:b06:e2e'),requirementSnapshot:ref('REQUIREMENT_SNAPSHOT','req:b06:e2e'),target:ref('COMMIT',sourceSha)};
+            await api(`/repos/${owner}/${repo}/git/refs`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:`refs/heads/${branch}`,sha:sourceSha})});
+            try{
+              const evidenceText='b06-e2e-evidence\n',evPut=await put(evidencePath,'B-06 E2E evidence',evidenceText),expected=C.sha256(evidenceText),at='2026-09-11T16:30:00Z';
+              let checks=C.createRegistry({projectId:'project:b06:e2e'});
+              checks=C.registerEvidence(checks,{id:'evidence:b06:e2e',subject:scope.subject,requirementSnapshot:scope.requirementSnapshot,target:scope.target},{actor,now:at});
+              checks=C.reserveEvidenceVersion(checks,{id:'evidence-version:b06:e2e:1',evidenceId:'evidence:b06:e2e',version:1,objectPath:evidencePath,expectedSha256:expected,expectedSize:Buffer.byteLength(evidenceText)},{actor,now:at});
+              const receipt={repositoryFullName:`${owner}/${repo}`,branch,path:evidencePath,contentSha256:expected,size:Buffer.byteLength(evidenceText),gitBlobSha:evPut.content.sha,commitSha:evPut.commit.sha,storedAt:at,readbackCommitSha:evPut.commit.sha,verifiedAt:at};
+              checks=C.recordEvidenceVerified(checks,'evidence-version:b06:e2e:1',{storageReceipt:receipt},{actor,now:at});
+              checks=C.finalizeEvidenceVersion(checks,'evidence-version:b06:e2e:1',{}, {actor,now:at});
+              checks=C.createCheck(checks,{id:'check:b06:e2e',subject:scope.subject,requirementSnapshot:scope.requirementSnapshot,target:scope.target,command:'node --test',runner:{kind:'GITHUB_ACTIONS',name:'B-06 E2E',version:'1',os:'linux',runId:String(process.env.E2E_RUN_ID)},evidenceVersionIds:['evidence-version:b06:e2e:1'],result:'PASS',startedAt:at,completedAt:at},{actor,now:at});
+
+              let assurance=A.createRegistry({projectId:'project:b06:e2e'});
+              assurance=A.defineEvent(assurance,{id:'event:b06:e2e',version:1,name:'B-06 E2E Ready',scope});
+              const eventDef=assurance.eventDefinitions[0];
+              let governance=G.createRegistry({projectId:'project:b06:e2e'});
+              governance=G.createTask(governance,{id:'task:b06:e2e',name:'B-06 E2E Task',subject:scope.subject,purpose:'exercise B-06',startConditions:[{type:'EVENT',ref:{type:'EVENT_DEFINITION',id:eventDef.id,version:eventDef.version,hash:eventDef.contentHash},required:true,note:''}],completionConditions:[],requiredStartApprovals:[],requiredCompletionApprovals:[]},{actor,now:at});
+              assurance=A.addTaskDependency(assurance,{id:'dependency:b06:e2e',taskId:'task:b06:e2e',eventDefinitionId:eventDef.id,eventVersion:eventDef.version},{governance});
+              const initial=CS.createAggregate(governance,assurance),init=await put(aggregatePath,'Initialize B-06 E2E aggregate',CS.stableStringify(initial));
+              const cs=CS.createChangeSet({id:'assurance-execution-changeset:b06:e2e',projectId:initial.projectId,idempotencyKey:'idem:b06:e2e',baseRevision:initial.revision,baseBlobSha:init.content.sha,baseGovernanceRevision:initial.governance.revision,baseAssuranceRevision:initial.assuranceEvent.revision,baseGeneration:initial.assuranceEvent.generation,operations:[
+                {type:'RECORD_ASSURANCE_FROM_CHECK',id:'assurance:b06:e2e:g1',generation:1,scope,checkId:'check:b06:e2e',at:'2026-09-11T16:30:01Z'},
+                {type:'EVALUATE_EVENT',eventDefinitionId:eventDef.id,eventVersion:eventDef.version,id:'event-occurrence:b06:e2e:g1',at:'2026-09-11T16:30:02Z'},
+                {type:'TASK_SUBMIT',taskId:'task:b06:e2e',at:'2026-09-11T16:30:03Z'},
+                {type:'TASK_START',taskId:'task:b06:e2e',at:'2026-09-11T16:30:04Z'},
+                {type:'BEGIN_EVALUATION_GENERATION',id:'invalidation:b06:e2e:g2',reason:'E2E_CHANGE',changedRefs:[scope.target],at:'2026-09-11T16:30:05Z'}
+              ]});
+              const v=CS.validateChangeSet(initial,init.content.sha,cs,{actor,checkEvidenceRegistry:checks,now:'2026-09-11T16:30:06Z'});
+              assert.equal(v.candidate.assuranceEvent.generation,2);assert.equal(v.candidate.assuranceEvent.syncState,'RECALCULATING');assert.equal(v.candidate.governance.tasks.find(x=>x.id==='task:b06:e2e').state,'HOLD');
+              const applied=await CS.applyWithContentApi({fetch,owner,repo,branch,path:aggregatePath,token,changeSet:cs,validationRecord:v.validationRecord,actor,checkEvidenceRegistry:checks,now:'2026-09-11T16:30:07Z',preWriteRevalidate:async()=>true});
+              assert.equal(applied.status,'APPLIED');
+              console.log(`B-06 E2E PASS aggregateCommit=${applied.commitSha} generation=${applied.result.resultGeneration}`);
+            }finally{
+              await api(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,{method:'DELETE'},true).catch(()=>null);
+            }
+          })().catch(e=>{console.error(e);process.exit(1);});
+          NODE

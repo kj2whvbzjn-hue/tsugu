@@ -5,7 +5,7 @@
     "b03ResultCommit": "92dc673ba28b8dea3bbb08bbc7a43d646a0b8583",
     "projectRevision": null
   },
-  "resultCommit": null,
+  "resultCommit": "206d398947a1402560c08e8c6e9e2668dafac874",
   "scope": [
     "Check immutable result history and explicit FAIL resolution",
     "Evidence stable identity and monotonic currentVersion",
@@ -40,10 +40,13 @@
   "verificationEvidence": [
     "local isolated B-04 contract suite: 7/7 PASS",
     "node --check core-check-evidence.js/core-evidence-storage.js/core-check-evidence-changeset.js: PASS locally",
-    "deployment and repository-integrated E2E: pending GitHub Actions"
+    "GitHub Actions materialization run 34608810473: PASS, including 7/7 B-04 contract tests",
+    "Deploy TSUGU run 34609134198: PASS for result commit 206d398947a1402560c08e8c6e9e2668dafac874",
+    "TSUGU Check Evidence E2E run 34609172480: PASS",
+    "published B-04 modules match repository sources and repository-integrated immutable Evidence/readback/CheckEvidenceChangeSet flow: PASS"
   ],
-  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
-  "completedAt": null,
+  "status": "PASS",
+  "completedAt": "2026-09-11T14:17:01Z",
   "nextTask": "B-05",
   "rollbackPlan": "Revert the B-04 source commit. B-04 is additive and leaves B-03 governance and existing app.js save flow intact."
 }

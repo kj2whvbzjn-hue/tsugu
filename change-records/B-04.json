@@ -1,0 +1,49 @@
+{
+  "taskId": "B-04",
+  "baseline": {
+    "gitCommit": "e270084e68e74df9d61be2407ab5c33100ce7f8b",
+    "b03ResultCommit": "92dc673ba28b8dea3bbb08bbc7a43d646a0b8583",
+    "projectRevision": null
+  },
+  "resultCommit": null,
+  "scope": [
+    "Check immutable result history and explicit FAIL resolution",
+    "Evidence stable identity and monotonic currentVersion",
+    "EvidenceVersion RESERVED/STORED/VERIFIED/FINALIZED/FAILED lifecycle",
+    "immutable Git Evidence path",
+    "SHA-256, size and Git blob SHA readback verification",
+    "upload-success/metadata-failure reconciliation",
+    "CheckEvidenceChangeSet actor-bound GitHub CAS persistence"
+  ],
+  "acceptance": [
+    "PASS Check may reference only FINALIZED EvidenceVersion records",
+    "Evidence subject, RequirementSnapshot and COMMIT/DEPLOYMENT target must exactly match Check scope",
+    "EvidenceVersion path, expected SHA-256 and size are fixed before finalization",
+    "Git storage never overwrites conflicting content at an immutable Evidence path",
+    "write success is verified by readback SHA-256, size and Git blob SHA",
+    "late retry/finalization of an older EvidenceVersion cannot roll currentVersion backward",
+    "FAIL Check history is retained and later PASS resolves it by explicit scoped relation",
+    "reconciliation reports missing or mismatched objects without inventing PASS",
+    "persistent B-04 changes require CheckEvidenceChangeSet with revision/blob CAS and actor-bound validation"
+  ],
+  "plannedFiles": [
+    "static/core-check-evidence.js",
+    "static/core-evidence-storage.js",
+    "static/core-check-evidence-changeset.js",
+    "tests/core-check-evidence.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/check-evidence-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_B04.md",
+    "change-records/B-04.json"
+  ],
+  "verificationEvidence": [
+    "local isolated B-04 contract suite: 7/7 PASS",
+    "node --check core-check-evidence.js/core-evidence-storage.js/core-check-evidence-changeset.js: PASS locally",
+    "deployment and repository-integrated E2E: pending GitHub Actions"
+  ],
+  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
+  "completedAt": null,
+  "nextTask": "B-05",
+  "rollbackPlan": "Revert the B-04 source commit. B-04 is additive and leaves B-03 governance and existing app.js save flow intact."
+}

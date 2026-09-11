@@ -1,0 +1,88 @@
+name: TSUGU Check Evidence E2E
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-check-evidence-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Verify B-04 contracts
+        run: node --test tests/core-check-evidence.test.cjs
+      - name: Verify published modules and GitHub Evidence/ChangeSet flows
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          E2E_RUN_ID: ${{ github.run_id }}
+          E2E_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-check-evidence.js?run=${E2E_RUN_ID}" -o /tmp/published-core-check-evidence.js
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-evidence-storage.js?run=${E2E_RUN_ID}" -o /tmp/published-core-evidence-storage.js
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-check-evidence-changeset.js?run=${E2E_RUN_ID}" -o /tmp/published-core-check-evidence-changeset.js
+          cmp static/core-check-evidence.js /tmp/published-core-check-evidence.js
+          cmp static/core-evidence-storage.js /tmp/published-core-evidence-storage.js
+          cmp static/core-check-evidence-changeset.js /tmp/published-core-check-evidence-changeset.js
+          node <<'NODE'
+          (async()=>{
+            const assert=require('node:assert/strict');
+            const crypto=require('node:crypto');
+            const G=require('./static/core-check-evidence.js');
+            const S=require('./static/core-evidence-storage.js');
+            const CS=require('./static/core-check-evidence-changeset.js');
+            const owner='kj2whvbzjn-hue',repo='tsugu';
+            const branch=`b04-e2e-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}`;
+            const aggregatePath=`data/e2e/b04-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}.json`;
+            const token=process.env.GH_TOKEN_E2E,sourceSha=process.env.SOURCE_SHA;
+            const actor={id:'github-actions[bot]',subject:'github-actions',kind:'BOT',role:'EDITOR'};
+            const headers={Accept:'application/vnd.github+json',Authorization:`Bearer ${token}`,'X-GitHub-Api-Version':'2022-11-28','User-Agent':'tsugu-b04-e2e'};
+            const h=s=>'sha256:'+crypto.createHash('sha256').update(s).digest('hex');
+            const ref=(type,id)=>({type,id,version:1,hash:h(`${type}:${id}`)});
+            async function api(p,options={},allow404=false){const r=await fetch(`https://api.github.com${p}`,{...options,headers:{...headers,...(options.headers||{})}});const text=await r.text();if(allow404&&r.status===404)return null;if(!r.ok)throw new Error(`GitHub ${r.status}: ${text}`);return text?JSON.parse(text):null;}
+            await api(`/repos/${owner}/${repo}/git/refs`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:`refs/heads/${branch}`,sha:sourceSha})});
+            try{
+              const projectId='project:b04:e2e',evidenceId='evidence:b04:e2e';
+              const initial=CS.createAggregate(G.createRegistry({projectId}));
+              const created=await api(`/repos/${owner}/${repo}/contents/${aggregatePath}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'Initialize B-04 E2E aggregate',content:Buffer.from(CS.stableStringify(initial)).toString('base64'),branch})});
+              const bytes=Buffer.from(`TSUGU B-04 evidence ${process.env.E2E_RUN_ID}/${process.env.E2E_RUN_ATTEMPT}`,'utf8');
+              const expectedSha256=await S.sha256Bytes(bytes),expectedSize=bytes.length;
+              const objectPath=S.makeImmutableObjectPath({projectId,evidenceId,version:1,expectedSha256});
+              const stored=await S.storeImmutableEvidence({fetch,owner,repo,branch,path:objectPath,bytes,expectedSha256,expectedSize,token,now:'2026-09-11T07:00:00Z'});
+              assert.equal(stored.status,'STORED_AND_VERIFIED');
+              const req=ref('REQUIREMENT_SNAPSHOT','snapshot:b04:e2e'),subject=ref('BOX_INSTANCE','box:b04:e2e'),target=ref('COMMIT',`commit:${sourceSha}`);
+              const versionId=`evidence-version:${evidenceId}:1`;
+              const cs=CS.createChangeSet({id:'check-evidence-changeset:b04:e2e',projectId,idempotencyKey:'idem:b04:e2e',baseRevision:initial.revision,baseBlobSha:created.content.sha,operations:[
+                {type:'REGISTER_EVIDENCE',id:evidenceId,subject,requirementSnapshot:req,target,at:'2026-09-11T07:00:01Z'},
+                {type:'RESERVE_EVIDENCE_VERSION',evidenceId,version:1,objectPath,expectedSha256,expectedSize,at:'2026-09-11T07:00:02Z'},
+                {type:'RECORD_EVIDENCE_VERIFIED',versionId,storageReceipt:stored,at:'2026-09-11T07:00:03Z'},
+                {type:'FINALIZE_EVIDENCE_VERSION',versionId,at:'2026-09-11T07:00:04Z'},
+                {type:'CREATE_CHECK',id:'check:b04:e2e:pass',subject,requirementSnapshot:req,target,command:'synthetic b04 e2e',runner:{kind:'GITHUB_ACTIONS',runId:process.env.E2E_RUN_ID},evidenceVersionIds:[versionId],result:'PASS',startedAt:'2026-09-11T07:00:04Z',completedAt:'2026-09-11T07:00:05Z',at:'2026-09-11T07:00:05Z'}
+              ]});
+              const v=CS.validateChangeSet(initial,created.content.sha,cs,{actor,now:'2026-09-11T07:00:06Z'});
+              assert.equal(v.candidate.evidenceVersions[0].status,'FINALIZED');
+              assert.equal(v.candidate.checks[0].result,'PASS');
+              const applied=await CS.applyWithContentApi({fetch,owner,repo,branch,path:aggregatePath,token,changeSet:cs,validationRecord:v.validationRecord,actor,now:'2026-09-11T07:00:07Z'});
+              assert.equal(applied.status,'APPLIED');
+              const rec=await S.reconcileImmutableEvidence({fetch,owner,repo,branch,path:objectPath,expectedSha256,expectedSize,token,now:'2026-09-11T07:00:08Z'});
+              assert.equal(rec.status,'VERIFIED');
+              console.log(`B-04 E2E PASS aggregateCommit=${applied.commitSha} evidenceCommit=${stored.commitSha}`);
+            }finally{
+              await api(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,{method:'DELETE'},true).catch(()=>null);
+            }
+          })().catch(e=>{console.error(e);process.exit(1);});
+          NODE

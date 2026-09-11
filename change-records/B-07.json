@@ -5,7 +5,7 @@
     "b06ResultCommit": "836a6f1034ce9a8c60a0865ce892b51743b20fcf",
     "projectRevision": null
   },
-  "resultCommit": null,
+  "resultCommit": "d8f15508d289e99906d7c957a159757049b9a5a1",
   "scope": [
     "plan v2.3 chapter 9 ten-scenario Stage B acceptance execution",
     "machine-readable scenario-to-contract traceability",
@@ -33,12 +33,19 @@
     "change-records/B-07.json"
   ],
   "verificationEvidence": [
-    "ten-scenario contract acceptance: pending GitHub Actions",
-    "operations-guide local/published Playwright smoke: pending GitHub Actions",
-    "real GitHub content CAS race/retry: pending post-deploy GitHub Actions"
+    "PR TSUGU Stage B MVP E2E run 34615043685: SUCCESS",
+    "PR ten-scenario chapter 9 acceptance step: SUCCESS",
+    "PR operations-guide local Playwright keyboard/reload step: SUCCESS",
+    "Deploy TSUGU run 34615145187 for result commit d8f15508d289e99906d7c957a159757049b9a5a1: SUCCESS",
+    "post-deploy TSUGU Stage B MVP E2E run 34615192704: SUCCESS",
+    "post-deploy ten-scenario chapter 9 acceptance step: SUCCESS",
+    "published B-07 scenario manifest and index comparison step: SUCCESS",
+    "published operations-guide Playwright keyboard/reload step: SUCCESS",
+    "real GitHub Contents API same-blob CAS race and fresh-SHA retry step: SUCCESS",
+    "B-07 acceptance evidence artifact upload step: SUCCESS"
   ],
-  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
-  "completedAt": null,
+  "status": "PASS",
+  "completedAt": "2026-09-11T15:17:42Z",
   "nextTask": "C-01",
   "rollbackPlan": "Revert the B-07 source commit. B-07 adds acceptance/operations guidance only and does not migrate or weaken B-01 through B-06 persisted domain state."
 }

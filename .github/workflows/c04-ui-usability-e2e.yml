@@ -99,8 +99,7 @@ jobs:
           rm -f _site/app.js.gz.b64
           node --check _site/app.js
 
-          # Candidate repair: bypass browser cache for GitHub GETs only.
-          # No load-generation guard is added in this run, so this isolates stale GET reuse.
+          # Verified candidate repair: bypass browser cache for GitHub GETs only.
           python3 - <<'PY'
           from pathlib import Path
           p=Path('_site/app.js')
@@ -118,7 +117,10 @@ jobs:
             echo 'unexpected generation guard in no-store-only candidate' >&2
             exit 1
           fi
-          echo 'C-04 candidate: GitHub GET cache=no-store enabled; no latest-wins generation guard'
+          gzip -n -9 -c _site/app.js | base64 -w0 > c04-app-fixed.gz.b64
+          printf '\n' >> c04-app-fixed.gz.b64
+          echo "C04_FIXED_APP_JS_SHA256=$(sha256sum _site/app.js | awk '{print $1}')"
+          echo "C04_FIXED_PAYLOAD_SHA256=$(sha256sum c04-app-fixed.gz.b64 | awk '{print $1}')"
 
       - name: Install Playwright Chromium
         run: |
@@ -153,4 +155,5 @@ jobs:
             c04-ui-usability-evidence.json
             c04-mobile.png
             c04-desktop.png
+            c04-app-fixed.gz.b64
           if-no-files-found: ignore

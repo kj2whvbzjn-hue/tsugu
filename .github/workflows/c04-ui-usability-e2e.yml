@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
           base64 --decode tests/c04-ui-usability.e2e.cjs.gz.b64 | gzip --decompress > tests/.c04-ui-usability.e2e.cjs
           node --check tests/.c04-ui-usability.e2e.cjs
-          test "$(sha256sum tests/.c04-ui-usability.e2e.cjs | awk '{print $1}')" = "37a0a2da43acece456343e87306c3770030d810f097c4c21838cb44851533c1a"
+          test "$(sha256sum tests/.c04-ui-usability.e2e.cjs | awk '{print $1}')" = "9e1fdc7ffc6f4794a616ad6ea055859427f5bc56bd04159427404c8b34adf560"
           node -e "const p=require('./static/c04-ui-usability-plan.json'); if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==1)process.exit(1)"
 
       - name: Install Playwright Chromium

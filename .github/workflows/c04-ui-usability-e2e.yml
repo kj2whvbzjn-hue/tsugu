@@ -70,7 +70,6 @@ jobs:
           p.write_text(s)
           PY
 
-          # Verify one-item deletion normally. For final deletion, prove API=0 before diagnosing stale UI.
           python3 - <<'PY'
           from pathlib import Path
           p=Path('tests/.c04-ui-usability.e2e.cjs')
@@ -100,28 +99,26 @@ jobs:
           rm -f _site/app.js.gz.b64
           node --check _site/app.js
 
-          # Candidate repair: make record loads latest-wins and invalidate older loads on delete.
-          # This intentionally does NOT change fetch cache behavior, so the run isolates the async-overwrite hypothesis.
+          # Candidate repair: bypass browser cache for GitHub GETs only.
+          # No load-generation guard is added in this run, so this isolates stale GET reuse.
           python3 - <<'PY'
           from pathlib import Path
           p=Path('_site/app.js')
           s=p.read_text()
-          old="async function loadRecords(){state.loading=true;state.message=null;render();try{await ensureDataBranch();const {owner,repo,branch}=state.repo;const list=await gh(`/repos/${owner}/${repo}/contents/data/projects?ref=${encodeURIComponent(branch)}`,{},true);const files=(Array.isArray(list)?list:[]).filter(f=>f.type==='file'&&f.name.endsWith('.json')).slice(0,200);const rows=[];for(let i=0;i<files.length;i+=8){const batch=files.slice(i,i+8);const loaded=await Promise.all(batch.map(f=>gh(`/repos/${owner}/${repo}/contents/${f.path}?ref=${encodeURIComponent(branch)}`)));for(const file of loaded){try{rows.push(parseRecordFile(file))}catch(e){console.warn(e)}}}rows.sort((a,b)=>String(b.record.updatedAt).localeCompare(String(a.record.updatedAt)));state.records=rows;if(state.active){const fresh=rows.find(x=>x.record.project.id===state.active.project.id);if(fresh&&!isDirty())openLoaded(fresh)}state.message={type:'success',text:`GitHubから${rows.length}件を読み込みました`}}catch(e){state.message={type:'error',text:e.message}}finally{state.loading=false;render()}}"
-          new="let recordLoadGeneration=0;async function loadRecords(){const generation=++recordLoadGeneration;state.loading=true;state.message=null;render();try{await ensureDataBranch();const {owner,repo,branch}=state.repo;const list=await gh(`/repos/${owner}/${repo}/contents/data/projects?ref=${encodeURIComponent(branch)}`,{},true);const files=(Array.isArray(list)?list:[]).filter(f=>f.type==='file'&&f.name.endsWith('.json')).slice(0,200);const rows=[];for(let i=0;i<files.length;i+=8){const batch=files.slice(i,i+8);const loaded=await Promise.all(batch.map(f=>gh(`/repos/${owner}/${repo}/contents/${f.path}?ref=${encodeURIComponent(branch)}`)));for(const file of loaded){try{rows.push(parseRecordFile(file))}catch(e){console.warn(e)}}}rows.sort((a,b)=>String(b.record.updatedAt).localeCompare(String(a.record.updatedAt)));if(generation!==recordLoadGeneration)return;state.records=rows;if(state.active){const fresh=rows.find(x=>x.record.project.id===state.active.project.id);if(fresh&&!isDirty())openLoaded(fresh)}state.message={type:'success',text:`GitHubから${rows.length}件を読み込みました`}}catch(e){if(generation===recordLoadGeneration)state.message={type:'error',text:e.message}}finally{if(generation===recordLoadGeneration){state.loading=false;render()}}}"
+          old="async function gh(path,init={},allow404=false){const r=await fetch(API+path,{...init,headers:{...ghHeaders(),...(init.headers||{})}});"
+          new="async function gh(path,init={},allow404=false){const method=String(init.method||'GET').toUpperCase();const r=await fetch(API+path,{...init,...(method==='GET'?{cache:'no-store'}:{}),headers:{...ghHeaders(),...(init.headers||{})}});"
           if old not in s:
-              raise SystemExit('loadRecords candidate anchor not found')
+              raise SystemExit('gh fetch candidate anchor not found')
           s=s.replace(old,new,1)
-          delete_anchor="async function deleteProject(){if(!state.active||state.active.revision<1||!confirm(`「${state.active.project.name}」をGitHubから削除しますか？\\nGit履歴から復元は可能です。`))return;state.loading=true;render();"
-          delete_new="async function deleteProject(){if(!state.active||state.active.revision<1||!confirm(`「${state.active.project.name}」をGitHubから削除しますか？\\nGit履歴から復元は可能です。`))return;++recordLoadGeneration;state.loading=true;render();"
-          if delete_anchor not in s:
-              raise SystemExit('deleteProject invalidation anchor not found')
-          s=s.replace(delete_anchor,delete_new,1)
           p.write_text(s)
           PY
           node --check _site/app.js
-          grep -q 'let recordLoadGeneration=0' _site/app.js
-          grep -q 'generation!==recordLoadGeneration' _site/app.js
-          echo 'C-04 candidate: latest-wins record-load guard enabled; fetch caching unchanged'
+          grep -q "method==='GET'?{cache:'no-store'}" _site/app.js
+          if grep -q 'recordLoadGeneration' _site/app.js; then
+            echo 'unexpected generation guard in no-store-only candidate' >&2
+            exit 1
+          fi
+          echo 'C-04 candidate: GitHub GET cache=no-store enabled; no latest-wins generation guard'
 
       - name: Install Playwright Chromium
         run: |

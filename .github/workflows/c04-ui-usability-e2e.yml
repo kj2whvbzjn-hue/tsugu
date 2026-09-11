@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'static/c04-ui-usability-plan.json'
-      - 'tests/c04-ui-usability.e2e.cjs.gz.b64'
+      - 'tests/c04-ui-usability.e2e.cjs.gz.b64.part*'
       - '.github/workflows/c04-ui-usability-e2e.yml'
       - 'static/**'
       - 'change-records/C-04.json'
@@ -32,7 +32,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode tests/c04-ui-usability.e2e.cjs.gz.b64 | gzip --decompress > tests/.c04-ui-usability.e2e.cjs
+          cat tests/c04-ui-usability.e2e.cjs.gz.b64.part00 \
+              tests/c04-ui-usability.e2e.cjs.gz.b64.part01 \
+              tests/c04-ui-usability.e2e.cjs.gz.b64.part02 \
+              tests/c04-ui-usability.e2e.cjs.gz.b64.part03 \
+              tests/c04-ui-usability.e2e.cjs.gz.b64.part04 \
+            | base64 --decode | gzip --decompress > tests/.c04-ui-usability.e2e.cjs
           node --check tests/.c04-ui-usability.e2e.cjs
           test "$(sha256sum tests/.c04-ui-usability.e2e.cjs | awk '{print $1}')" = "9e1fdc7ffc6f4794a616ad6ea055859427f5bc56bd04159427404c8b34adf560"
           node -e "const p=require('./static/c04-ui-usability-plan.json'); if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==1)process.exit(1)"

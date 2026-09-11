@@ -40,6 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           node <<'NODE'
+          (async () => {
           const { chromium } = require('playwright');
           const assert = require('node:assert/strict');
 
@@ -81,10 +82,6 @@ jobs:
           page.on('console', m => console.log(`[browser:${m.type()}] ${m.text()}`));
           page.on('pageerror', e => console.log(`[pageerror] ${e.stack || e.message}`));
 
-          // The production UI intentionally refuses public data repositories.
-          // For E2E only, make repository metadata appear private while all actual
-          // contents calls go to the public repo's tsugu-data branch. Also replace
-          // the placeholder PAT with this workflow's short-lived GITHUB_TOKEN.
           await page.addInitScript(({ actualToken, owner, repo }) => {
             const originalFetch = window.fetch.bind(window);
             window.fetch = async (input, init = {}) => {
@@ -134,7 +131,6 @@ jobs:
             console.log('Page text after new project:\n' + (await page.locator('body').innerText()).slice(0, 8000));
             await page.screenshot({ path: 'e2e-03-new-project.png', fullPage: true });
 
-            // Handle a create dialog if the implementation uses one.
             const dialog = page.getByRole('dialog').first();
             if (await dialog.count() && await dialog.isVisible()) {
               const di = dialog.locator('input[type="text"], input:not([type])');
@@ -193,6 +189,10 @@ jobs:
             }
             await browser.close();
           }
+          })().catch((error) => {
+            console.error(error && error.stack ? error.stack : error);
+            process.exit(1);
+          });
           NODE
 
       - name: Upload E2E screenshots

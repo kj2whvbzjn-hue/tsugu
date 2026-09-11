@@ -56,6 +56,22 @@ jobs:
           test "$(sha256sum tests/.c04-ui-usability.e2e.cjs | awk '{print $1}')" = "998a299116a253f358aa2ba91a6bff9b310ede7fe2fe49de754aa1bea4008e45"
           node -e "const p=require('./static/c04-ui-usability-plan.json'); if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==1)process.exit(1)"
 
+          # Contents API can briefly return 404 immediately after a new save on the isolated branch.
+          # Retry only those transient readProject 404s; all other errors still fail immediately.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/.c04-ui-usability.e2e.cjs')
+          s=p.read_text()
+          read_marker='async function readProject('
+          find_marker='async function findSavedByPrefix('
+          if read_marker not in s or find_marker not in s:
+              raise SystemExit('readback retry anchors not found')
+          s=s.replace(read_marker,'async function readProjectOnce(',1)
+          wrapper="async function readProject(...args){for(let i=0;i<12;i++){try{return await readProjectOnce(...args);}catch(e){if(!String(e&&e.message||e).includes('GitHub 404')||i===11)throw e;await new Promise(r=>setTimeout(r,500));}}}\n"
+          s=s.replace(find_marker,wrapper+find_marker,1)
+          p.write_text(s)
+          PY
+
           # Synchronize deletion verification with the rendered project list, not hidden detail DOM.
           python3 - <<'PY'
           from pathlib import Path
@@ -74,7 +90,7 @@ jobs:
           PY
           node --check tests/.c04-ui-usability.e2e.cjs
           echo '--- C-04 delete/reload project-list source ---'
-          nl -ba tests/.c04-ui-usability.e2e.cjs | sed -n '191,201p'
+          nl -ba tests/.c04-ui-usability.e2e.cjs | sed -n '191,202p'
 
       - name: Build candidate Pages site
         if: ${{ github.event_name == 'pull_request' }}

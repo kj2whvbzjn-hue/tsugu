@@ -1,0 +1,50 @@
+{
+  "taskId": "B-06",
+  "baseline": {
+    "gitCommit": "075d90bbe4746873590c79e9ba464e432916e8ea",
+    "b05ResultCommit": "075d90bbe4746873590c79e9ba464e432916e8ea",
+    "projectRevision": null
+  },
+  "resultCommit": null,
+  "scope": [
+    "Assurance exact subject/RequirementSnapshot/target evaluation",
+    "monotonic evaluation generation and conservative invalidation",
+    "EventDefinition versioned current-generation Event occurrence",
+    "explicit AND TaskDependency on EventDefinition versions",
+    "composite Task/Event cycle rejection",
+    "READY/BLOCKED/IN_PROGRESS/HOLD/DONE dependency transitions",
+    "start/resume/complete just-in-time revalidation",
+    "atomic AssuranceExecutionChangeSet CAS persistence"
+  ],
+  "acceptance": [
+    "only exact-scope PASS Checks backed by FINALIZED EvidenceVersion can produce current VALID Assurance",
+    "old-generation delayed PASS remains historical and cannot re-establish the current Event",
+    "recalculation pending or UNKNOWN sync blocks start, resume and completion",
+    "direct and indirect Task/Event dependency cycles are rejected",
+    "READY becomes BLOCKED and IN_PROGRESS becomes HOLD when current dependencies are invalidated",
+    "multiple Hold reasons are retained and explicit Resume revalidates after all reasons are resolved",
+    "completion revalidates completion conditions and final approvals",
+    "DONE history remains DONE after later invalidation while repair Issue/Task is created",
+    "persistent B-06 changes bind aggregate revision, Governance revision, Assurance revision, generation and Git blob SHA"
+  ],
+  "plannedFiles": [
+    "static/core-assurance-event.js",
+    "static/core-task-execution.js",
+    "static/core-assurance-event-changeset.js",
+    "tests/core-assurance-event.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/assurance-event-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_B06.md",
+    "change-records/B-06.json"
+  ],
+  "verificationEvidence": [
+    "local isolated B-06 contract suite: 8/8 PASS",
+    "node --check core-assurance-event.js/core-task-execution.js/core-assurance-event-changeset.js: PASS locally",
+    "real B-03/B-04 integration, deployment and repository-integrated E2E: pending GitHub Actions"
+  ],
+  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
+  "completedAt": null,
+  "nextTask": "B-07",
+  "rollbackPlan": "Revert the B-06 source commit. B-06 is additive and leaves B-03/B-04/B-05 persisted formats intact."
+}

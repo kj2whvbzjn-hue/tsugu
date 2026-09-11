@@ -81,11 +81,24 @@ jobs:
           const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
           page.on('console', m => console.log(`[browser:${m.type()}] ${m.text()}`));
           page.on('pageerror', e => console.log(`[pageerror] ${e.stack || e.message}`));
+          page.on('response', async r => {
+            if (r.status() >= 400) {
+              let body = '';
+              try { body = (await r.text()).slice(0, 1000); } catch {}
+              console.log(`[response ${r.status()}] ${r.request().method()} ${r.url()} ${body}`);
+            }
+          });
 
           await page.addInitScript(({ actualToken, owner, repo }) => {
             const originalFetch = window.fetch.bind(window);
             window.fetch = async (input, init = {}) => {
               const requestUrl = typeof input === 'string' ? input : input.url;
+              if (requestUrl === 'https://api.github.com/user') {
+                return new Response(JSON.stringify({ login: owner, id: 1, type: 'User' }), {
+                  status: 200,
+                  headers: { 'content-type': 'application/json' }
+                });
+              }
               const originalHeaders = init.headers || (typeof input !== 'string' ? input.headers : undefined);
               const h = new Headers(originalHeaders || {});
               if (requestUrl.startsWith('https://api.github.com/')) {

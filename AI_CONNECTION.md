@@ -1,14 +1,18 @@
 # 継ぐ / TSUGU：AI連携
 
-TSUGUは単一のアプリケーションとして運用し、現在のAI連携は **引き継ぎテキスト + 返却JSON** を正規経路とします。
+TSUGUは単一のアプリケーションとして運用します。現在の正規AI連携は **AI引き継ぎテキスト + 返却JSON** です。
+
+## 実装・参照ツール
+
+AIの実装作業では、GitHub接続ツールで `kj2whvbzjn-hue/tsugu` の `main` とcommit/diff/Actionsを確認し、ローカル実行環境で構文検査・テスト・生成を行い、Web/Browserで公式仕様と公開TSUGUを実測します。ChatGPT Sites、旧MCP、旧サーバーAPIは参照・実行経路にしません。
+
+共通参照は `docs/TSUGU_PROJECT_REFERENCE.md`、Core vNextは `docs/TSUGU_CORE_VNEXT_PLAN.md` と `docs/TSUGU_CORE_VNEXT_WBS.md` を使用します。
 
 ## AIへ渡す
 
-案件画面の「AI引き継ぎ」から、現在の案件・revision・項目を含む引き継ぎテキストを生成します。必要に応じてChatGPT等へ貼り付け、提案を作成します。
+案件画面の「AI引き継ぎ」から、案件ID、baseRevision、目的、方針、Git基準、項目を含むテキストを生成します。AIは作業前にGitHub `main` の現在HEADを別途確認し、引き継ぎ中の古いSHAを現在値として流用しません。
 
 ## TSUGUへ戻す
-
-AIからの返却は次の形式を使用します。
 
 ```json
 {
@@ -20,10 +24,8 @@ AIからの返却は次の形式を使用します。
 }
 ```
 
-TSUGUは `projectId` と `baseRevision` を現在の案件と照合し、許可された変更だけを編集内容へ反映します。反映だけではGitHubへ保存されません。利用者が「GitHubへ保存」を実行した時点で、新しいrevisionとして確定します。
+TSUGUは `projectId` と `baseRevision` を現在案件と照合し、許可された変更だけを編集内容へ反映します。反映だけでは保存されず、利用者が「GitHubへ保存」を実行した時点で新revisionとして確定します。
 
-## 制限
+削除、工程移行、実装承認、完了承認はAI返却から直接実行しません。
 
-AI返却から削除、工程移行、実装承認、完了承認を直接実行しません。これらは利用者の明示操作で行います。
-
-旧サーバー実装にあったMCPルートや提案Inboxは、現在の公開TSUGUの正規経路ではありません。将来MCPを導入する場合も、別の「MCP版」を作らず、同じ案件モデル、revision競合検査、承認規則へ統合します。
+旧MCPルートや提案Inboxは撤去対象であり、フォールバックとして残しません。将来AI接続方式を拡張する場合も、統一TSUGUの同じ案件モデル、競合検査、承認規則へ直接統合します。

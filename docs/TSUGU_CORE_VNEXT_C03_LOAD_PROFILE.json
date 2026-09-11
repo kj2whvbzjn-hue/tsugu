@@ -1,11 +1,45 @@
 {
-  "id": "c03-engineering-probe-2026-09-12",
+  "id": "c03-user-corpus-load-2026-09-12",
   "approved": false,
-  "source": "Engineering probe only. GitHub connector cannot read private kj2whvbzjn-hue/tsugu-data (404), so operational record counts and human-agreed acceptance thresholds are not available in the current execution context.",
-  "integrationRecords": 250,
-  "missedCommits": 100,
-  "recalculationItems": 200,
+  "scaleApproved": true,
+  "acceptanceThresholdsApproved": false,
+  "source": "User-approved load scale derived from the uploaded current implementation plan corpus. The corpus scale is approved for C-03 load testing; performance acceptance thresholds are not supplied and therefore remain unapproved.",
+  "integrationRecords": 217,
+  "missedCommits": 90,
+  "recalculationItems": 217,
   "maxSyncMs": null,
   "maxRecalculationMs": null,
-  "approvalRef": null
+  "approvalRef": null,
+  "scaleApprovalRef": {
+    "type": "USER_INSTRUCTION",
+    "date": "2026-09-12",
+    "instruction": "これを登録して負荷試験として"
+  },
+  "workloadMapping": {
+    "integrationRecords": "217 unique ID-bearing records in the uploaded development-project snapshot",
+    "missedCommits": "90 Task records, modeled as one recovery commit per Task for a whole-plan change burst",
+    "recalculationItems": "217 unique ID-bearing records, modeled as Architecture Health evaluation items"
+  },
+  "corpus": {
+    "workspaceId": "DEV-GA-CURRENT-IMPLEMENTATION-001",
+    "json": {
+      "file": "development-project_DEV-GA-CURRENT-IMPLEMENTATION-001.json",
+      "bytes": 480617,
+      "sha256": "a781c1ddd3cce593c24ce05901e1f992d576796d3985235a834257776c4174b5"
+    },
+    "planMarkdown": {
+      "file": "00_新規実装計画_総合.md",
+      "bytes": 9380,
+      "sha256": "200378fa2b001459c0ecce69284585235fdecb14e0a906d5b7cf72d2e791ee45"
+    },
+    "specifications": 34,
+    "workBoxes": 37,
+    "tasks": 90,
+    "dependencyEdges": 348,
+    "checks": 34,
+    "uniqueIds": 217,
+    "topLevelListRecords": 198,
+    "acceptanceExamples": 282,
+    "implementationSteps": 270
+  }
 }

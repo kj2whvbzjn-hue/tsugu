@@ -5,6 +5,8 @@
     "a02ResultCommit": "6d5b2a292baeb6401d60dcb8e8ad9cc3572eb323",
     "projectRevision": null
   },
+  "resultCommit": "8724be951e2925463ce844290d80f856143a42df",
+  "resultTree": "eb657dfbcc02bf535b6efee97f9afcce01a5697d",
   "scope": [
     "ProjectArchitecture",
     "ArchitectureNode",
@@ -37,12 +39,13 @@
   "verificationEvidence": [
     "node --check static/core-architecture.js: PASS locally",
     "node --test tests/core-architecture.test.cjs: 13/13 PASS locally",
-    "Deploy TSUGU: pending merge",
-    "TSUGU E2E: pending merge",
-    "TSUGU Architecture E2E: pending merge",
-    "TSUGU Core Reference E2E: pending merge"
+    "Deploy TSUGU run 34555930507: SUCCESS for 8724be951e2925463ce844290d80f856143a42df",
+    "TSUGU Architecture E2E run 34555952227: SUCCESS for 8724be951e2925463ce844290d80f856143a42df",
+    "TSUGU Core Reference E2E run 34555952202: SUCCESS for 8724be951e2925463ce844290d80f856143a42df",
+    "TSUGU E2E run 34555952245: SUCCESS for 8724be951e2925463ce844290d80f856143a42df",
+    "Pages artifact 10182543629: size=28021, digest=sha256:bc993a6ce62fc1d74d184ad0fa518903b72c7a9385ae97eef75ea5ea310f6053"
   ],
-  "status": "IN_PROGRESS",
+  "status": "PASS",
   "nextTask": "A-04",
   "rollbackPlan": "Revert the A-03 result commit. A-03 does not enable public structural writes or migrate Private project data; do not restore any retired server runtime."
 }

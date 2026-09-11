@@ -2,12 +2,15 @@
 
 ## 構成
 
-- UI: `static/` を GitHub Pages で配信
-- 案件保存: 同一リポジトリの `tsugu-data` ブランチ
+- 公開UI: `kj2whvbzjn-hue/tsugu` の `static/` を GitHub Pages で配信
+- 案件保存: Private リポジトリ `kj2whvbzjn-hue/tsugu-data`
+- データブランチ: `main`
 - 案件ファイル: `data/projects/<projectId>.json`
 - 1回の保存 = 1 Git commit
 - 履歴 = Git commit history
 - 競合防止 = Contents API の blob SHA と案件 revision の双方を照合
+
+公開UIと案件データを分離する。`tsugu` リポジトリは GitHub Pages 用に Public のまま維持し、案件データは `tsugu-data` の Private リポジトリへ保存する。
 
 ## 認証
 
@@ -17,21 +20,27 @@ localStorage / Cookie / 案件JSONには保存しない。
 
 推奨権限:
 
-- Repository access: `kj2whvbzjn-hue/tsugu` のみ
+- Repository access: `kj2whvbzjn-hue/tsugu-data` のみ
 - Repository permissions: `Contents: Read and write`
 
+静的アプリは接続時に保存先リポジトリが Private であることを確認し、Public リポジトリを案件保存先として指定した場合は接続を拒否する。
 `.github/workflows` をブラウザから変更する機能は実装していないため、静的アプリ利用用PATに Workflows 権限は不要。
 
 ## GitHub Pages 有効化
 
-リポジトリ Settings → Pages → Build and deployment → Source を `GitHub Actions` に設定する。
-`main` にこの変更を取り込むと `pages.yml` が `static/` の静的成果物をデプロイする。
+公開リポジトリ `kj2whvbzjn-hue/tsugu` の Settings → Pages → Build and deployment → Source を `GitHub Actions` に設定する。
+`main` の `pages.yml` が `static/` の静的成果物をデプロイする。
+
+## 初回データ保存
+
+`tsugu-data` は `main` ブランチが存在すれば、`data/projects/` を事前作成しなくてもよい。
+最初の案件保存時に GitHub Contents API が `data/projects/<projectId>.json` を作成する。
 
 ## 対応範囲
 
 静的版で対応:
 
-- GitHub上の案件一覧・読込・新規作成・更新・削除
+- Private GitHubリポジトリ上の案件一覧・読込・新規作成・更新・削除
 - 案件版（revision）とGit blob SHAによる競合検出
 - Git commit履歴の表示・過去JSON参照
 - 概要、工程、項目編集

@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _site
-          cp static/index.html static/styles.css static/favicon.svg static/stage-b-mvp-scenarios.json static/core-reference.js static/core-architecture.js static/core-changeset.js static/core-box.js static/core-box-changeset.js static/core-rule-test.js static/core-rule-test-changeset.js static/core-governance.js static/core-governance-changeset.js static/core-check-evidence.js static/core-evidence-storage.js static/core-check-evidence-changeset.js static/core-planned-actual-change.js static/core-git-diff.js static/core-planned-actual-change-changeset.js static/core-assurance-event.js static/core-task-execution.js static/core-assurance-event-changeset.js static/core-impact-graph.js static/core-sync.js static/core-sync-storage.js static/core-sync-reconcile.js static/core-sync-admin.js static/core-guard.js _site/
+          cp static/index.html static/styles.css static/favicon.svg static/stage-b-mvp-scenarios.json static/core-reference.js static/core-architecture.js static/core-changeset.js static/core-box.js static/core-box-changeset.js static/core-rule-test.js static/core-rule-test-changeset.js static/core-governance.js static/core-governance-changeset.js static/core-check-evidence.js static/core-evidence-storage.js static/core-check-evidence-changeset.js static/core-planned-actual-change.js static/core-git-diff.js static/core-planned-actual-change-changeset.js static/core-assurance-event.js static/core-task-execution.js static/core-assurance-event-changeset.js static/core-impact-graph.js static/core-architecture-health.js static/core-sync.js static/core-sync-storage.js static/core-sync-reconcile.js static/core-sync-admin.js static/core-guard.js _site/
           base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
           node --check _site/core-reference.js
           node --check _site/core-architecture.js
@@ -54,6 +54,7 @@ jobs:
           node --check _site/core-task-execution.js
           node --check _site/core-assurance-event-changeset.js
           node --check _site/core-impact-graph.js
+          node --check _site/core-architecture-health.js
           node --check _site/core-sync.js
           node --check _site/core-sync-storage.js
           node --check _site/core-sync-reconcile.js

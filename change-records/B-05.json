@@ -1,0 +1,50 @@
+{
+  "taskId": "B-05",
+  "baseline": {
+    "gitCommit": "cbb752d34a75c2f48671df520b1a3eea231068e7",
+    "b04ResultCommit": "cbb752d34a75c2f48671df520b1a3eea231068e7",
+    "projectRevision": null
+  },
+  "resultCommit": null,
+  "scope": [
+    "PlannedChange stable PathEntry ID targets and base commit binding",
+    "ActualChange base/head commit and merge comparison parent binding",
+    "GitHub compare capture with immutable raw diff hash",
+    "explicit rename mapping only when GitHub supplies previous_filename",
+    "UNMAPPED and CONFIRMATION_REQUIRED change visibility",
+    "Planned/Actual reconciliation with MATCH/PARTIAL/MISMATCH/UNKNOWN",
+    "persistent Apply-time GitHub revalidation",
+    "PlannedActualChangeSet actor-bound GitHub CAS persistence"
+  ],
+  "acceptance": [
+    "PlannedChange targets stable PathEntry IDs rather than display paths",
+    "ActualChange fixes repository, base commit, head commit and merge comparison parent",
+    "merge head without an explicit real parent is rejected",
+    "exact path changes map to stable IDs and explicit Git rename preserves the old stable ID",
+    "unknown rename never guesses an ID and remains CONFIRMATION_REQUIRED",
+    "missing planned targets, unexpected mapped targets and unmapped paths are visible as PARTIAL",
+    "GitHub API failure is UNKNOWN and raw diff mismatch is MISMATCH",
+    "persistent ActualChange Apply re-fetches GitHub and rejects stale/fabricated capture",
+    "persistent B-05 changes require PlannedActualChangeSet with revision/blob CAS and actor-bound validation"
+  ],
+  "plannedFiles": [
+    "static/core-planned-actual-change.js",
+    "static/core-git-diff.js",
+    "static/core-planned-actual-change-changeset.js",
+    "tests/core-planned-actual-change.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/planned-actual-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_B05.md",
+    "change-records/B-05.json"
+  ],
+  "verificationEvidence": [
+    "local isolated B-05 contract suite: 7/7 PASS",
+    "node --check core-planned-actual-change.js/core-git-diff.js/core-planned-actual-change-changeset.js: PASS locally",
+    "deployment and repository-integrated E2E: pending GitHub Actions"
+  ],
+  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
+  "completedAt": null,
+  "nextTask": "B-06",
+  "rollbackPlan": "Revert the B-05 source commit. B-05 is additive and leaves B-04 Evidence and existing app.js save flow intact."
+}

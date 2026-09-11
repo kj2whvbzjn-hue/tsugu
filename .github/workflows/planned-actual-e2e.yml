@@ -1,0 +1,85 @@
+name: TSUGU Planned Actual E2E
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-planned-actual-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Verify B-05 contracts
+        run: node --test tests/core-planned-actual-change.test.cjs
+      - name: Verify published modules and GitHub Planned/Actual flow
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          E2E_RUN_ID: ${{ github.run_id }}
+          E2E_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-planned-actual-change.js?run=${E2E_RUN_ID}" -o /tmp/published-core-planned-actual-change.js
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-git-diff.js?run=${E2E_RUN_ID}" -o /tmp/published-core-git-diff.js
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-planned-actual-change-changeset.js?run=${E2E_RUN_ID}" -o /tmp/published-core-planned-actual-change-changeset.js
+          cmp static/core-planned-actual-change.js /tmp/published-core-planned-actual-change.js
+          cmp static/core-git-diff.js /tmp/published-core-git-diff.js
+          cmp static/core-planned-actual-change-changeset.js /tmp/published-core-planned-actual-change-changeset.js
+          node <<'NODE'
+          (async()=>{
+            const assert=require('node:assert/strict');
+            const D=require('./static/core-planned-actual-change.js');
+            const Git=require('./static/core-git-diff.js');
+            const CS=require('./static/core-planned-actual-change-changeset.js');
+            const owner='kj2whvbzjn-hue',repo='tsugu',token=process.env.GH_TOKEN_E2E,sourceSha=process.env.SOURCE_SHA;
+            const branch=`b05-e2e-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}`;
+            const targetPath=`data/e2e/b05-target-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}.txt`;
+            const aggregatePath=`data/e2e/b05-aggregate-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}.json`;
+            const headers={Accept:'application/vnd.github+json',Authorization:`Bearer ${token}`,'X-GitHub-Api-Version':'2022-11-28','User-Agent':'tsugu-b05-e2e'};
+            async function api(p,options={},allow404=false){const r=await fetch(`https://api.github.com${p}`,{...options,headers:{...headers,...(options.headers||{})}});const text=await r.text();if(allow404&&r.status===404)return null;if(!r.ok)throw new Error(`GitHub ${r.status}: ${text}`);return text?JSON.parse(text):null;}
+            async function put(path,message,content,sha){return api(`/repos/${owner}/${repo}/contents/${path}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,content:Buffer.from(content).toString('base64'),branch,...(sha?{sha}:{})})});}
+            await api(`/repos/${owner}/${repo}/git/refs`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:`refs/heads/${branch}`,sha:sourceSha})});
+            try{
+              const first=await put(targetPath,'B-05 E2E base','base\n');
+              const baseSha=first.commit.sha,baseBlob=first.content.sha;
+              const second=await put(targetPath,'B-05 E2E head','head\n',baseBlob);
+              const headSha=second.commit.sha;
+              const names=targetPath.split('/'),file=names.pop();
+              const architecture={type:'ProjectArchitecture',project:{id:'project:b05:e2e'},repositoryScopes:[{repositoryId:1,fullName:`${owner}/${repo}`}],pathEntries:[
+                {id:'path:data',repositoryId:1,kind:'DIRECTORY',name:'data',parentPathEntryId:null},
+                {id:'path:e2e',repositoryId:1,kind:'DIRECTORY',name:'e2e',parentPathEntryId:'path:data'},
+                {id:'path:target',repositoryId:1,kind:'FILE',name:file,parentPathEntryId:'path:e2e'}
+              ]};
+              const capture=await Git.captureComparison({fetch,owner,repo,projectId:'project:b05:e2e',repositoryId:1,baseCommitSha:baseSha,headCommitSha:headSha,architecture,token,now:'2026-09-11T16:00:00Z'});
+              assert.equal(capture.files.length,1); assert.equal(capture.files[0].pathEntryId,'path:target'); assert.equal(capture.files[0].mappingStatus,'MAPPED');
+              const initial=CS.createAggregate(D.createRegistry({projectId:'project:b05:e2e'}));
+              const init=await put(aggregatePath,'Initialize B-05 E2E aggregate',CS.stableStringify(initial));
+              const actor={id:'github-actions[bot]',subject:'github-actions',kind:'BOT',role:'PROJECT_ADMIN'};
+              const cs=CS.createChangeSet({id:'planned-actual-changeset:b05:e2e',projectId:initial.projectId,idempotencyKey:'idem:b05:e2e',baseRevision:initial.revision,baseBlobSha:init.content.sha,operations:[
+                {type:'CREATE_PLANNED_CHANGE',id:'planned:b05:e2e',repositoryId:1,baseCommitSha:baseSha,targets:[{pathEntryId:'path:target',changeType:'MODIFIED'}],summary:'modify mapped target',at:'2026-09-11T16:00:01Z'},
+                {type:'REGISTER_ACTUAL_CHANGE',id:'actual:b05:e2e',plannedChangeId:'planned:b05:e2e',capture,at:'2026-09-11T16:00:02Z'},
+                {type:'RECORD_CHANGE_RECONCILIATION',id:'reconciliation:b05:e2e',plannedChangeId:'planned:b05:e2e',actualChangeId:'actual:b05:e2e',gitObservation:{status:'MATCH',gitDiffHash:capture.gitDiffHash},at:'2026-09-11T16:00:03Z'}
+              ]});
+              const v=CS.validateChangeSet(initial,init.content.sha,cs,{actor,architecture,now:'2026-09-11T16:00:04Z'});
+              assert.equal(v.candidate.reconciliations[0].status,'MATCH');
+              const applied=await CS.applyWithContentApi({fetch,owner,repo,branch,path:aggregatePath,token,gitToken:token,changeSet:cs,validationRecord:v.validationRecord,actor,architecture,now:'2026-09-11T16:00:05Z'});
+              assert.equal(applied.status,'APPLIED');
+              console.log(`B-05 E2E PASS aggregateCommit=${applied.commitSha} base=${baseSha} head=${headSha}`);
+            }finally{
+              await api(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,{method:'DELETE'},true).catch(()=>null);
+            }
+          })().catch(e=>{console.error(e);process.exit(1);});
+          NODE

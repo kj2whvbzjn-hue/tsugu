@@ -1,0 +1,43 @@
+name: B-05 Materialize
+
+on:
+  push:
+    branches: [vnext-b05-20260911]
+    paths:
+      - '.b05bundle/**'
+      - '.github/workflows/b05-materialize.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: b05-materialize
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: vnext-b05-20260911
+      - name: Materialize and verify B-05 sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .b05bundle/payload.part* | base64 --decode > /tmp/b05.tar.gz
+          tar -xzf /tmp/b05.tar.gz
+          node --check static/core-planned-actual-change.js
+          node --check static/core-git-diff.js
+          node --check static/core-planned-actual-change-changeset.js
+          node --test tests/core-planned-actual-change.test.cjs
+      - name: Commit materialized B-05 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add static/core-planned-actual-change.js static/core-git-diff.js static/core-planned-actual-change-changeset.js tests/core-planned-actual-change.test.cjs docs/TSUGU_CORE_VNEXT_B05.md change-records/B-05.json static/index.html
+          git rm -r .b05bundle
+          git commit -m 'Implement B-05 Planned Actual Change contracts'
+          git push origin HEAD:vnext-b05-20260911

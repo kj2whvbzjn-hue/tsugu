@@ -2,7 +2,7 @@
   "taskId": "A-01",
   "baseline": {
     "gitCommit": "1f3a551361e691352e35dccfc5b40a5c34aa1d6a",
-    "deployment": "GitHub Pages main deployment; run to be recorded after merge",
+    "deployment": "GitHub Pages main deployment run 34554150292 for 9f34b5755947725944b0b36970ca37cb177117b8",
     "projectRevision": null
   },
   "plannedFiles": [
@@ -47,8 +47,12 @@
   "verificationEvidence": [
     "node --check static/core-guard.js: PASS locally",
     "node --test tests/core-guard.test.cjs: 10/10 PASS locally",
-    "GitHub Actions Deploy TSUGU: pending merge",
-    "GitHub Actions TSUGU E2E: pending merge"
+    "GitHub Actions Deploy TSUGU run 34554150292: completed / success",
+    "GitHub Actions TSUGU E2E run 34554169295: completed / success",
+    "Verified target commit: 9f34b5755947725944b0b36970ca37cb177117b8"
   ],
+  "status": "PASS",
+  "completedAt": "2026-09-11T02:20:05Z",
+  "nextTask": "A-02",
   "rollbackPlan": "Revert the A-01 commit. Project JSON fields added by Core Guard are additive and ignored by the existing UI; do not delete project data or restore the retired server runtime."
 }

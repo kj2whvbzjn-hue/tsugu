@@ -1,0 +1,143 @@
+name: TSUGU Native Bulk Import E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/native-bulk-import-e2e.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-native-bulk-import-e2e-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install Playwright
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify published TSUGU native bulk import save and reload
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          E2E_RUN_ID: ${{ github.run_id }}
+          E2E_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const assert=require('node:assert/strict');
+            const fs=require('node:fs');
+            const crypto=require('node:crypto');
+            const {chromium}=require('playwright');
+            const owner='kj2whvbzjn-hue',repo='tsugu',token=process.env.GH_TOKEN_E2E;
+            const branch=`native-bulk-e2e-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}`;
+            const headers={Accept:'application/vnd.github+json',Authorization:`Bearer ${token}`,'X-GitHub-Api-Version':'2022-11-28','User-Agent':'tsugu-native-bulk-e2e'};
+            async function api(path,options={},allow404=false){
+              const r=await fetch(`https://api.github.com${path}`,{...options,headers:{...headers,...(options.headers||{})}});
+              const text=await r.text();let body=null;try{body=text?JSON.parse(text):null;}catch{body={message:text};}
+              if(allow404&&r.status===404)return null;
+              if(!r.ok)throw new Error(`GitHub ${r.status}: ${text}`);
+              return body;
+            }
+            async function projects(){
+              const rows=await api(`/repos/${owner}/${repo}/contents/data/projects?ref=${encodeURIComponent(branch)}`,{},true);
+              return Array.isArray(rows)?rows.filter(x=>x.type==='file'&&x.name.endsWith('.json')):[];
+            }
+            function emptyCore(){return{architectureNodes:[],workBoxes:[],tasks:[],decisions:[],issues:[],checks:[],approvals:[],evidences:[],evidenceVersions:[],repositories:[],repositoryBaselines:[],pathEntries:[],plannedChanges:[],actualChanges:[],relations:[]};}
+            const items=[];
+            items.push({id:'ARC-NIP',kind:'構成',title:'修正版34仕様実装',body:'全項目の独立計画',status:'未着手',parentId:'',reason:''});
+            for(let i=1;i<=34;i++)items.push({id:`GS-${String(i).padStart(2,'0')}`,kind:'構成',title:`仕様 ${i}`,body:`仕様本文 ${i}`,status:'要確認',parentId:'ARC-NIP',reason:'ユーザー提供仕様'});
+            for(let i=1;i<=37;i++)items.push({id:`WB-${String(i).padStart(2,'0')}`,kind:'作業',title:`Work Box ${i}`,body:`Work Box ${i}`,status:'未着手',parentId:'ARC-NIP',reason:''});
+            for(let i=1;i<=90;i++)items.push({id:`TASK-${String(i).padStart(3,'0')}`,kind:'作業',title:`Task ${i}`,body:`Task ${i} implementation`,status:i<=16?'保留':'未着手',parentId:`WB-${String(((i-1)%37)+1).padStart(2,'0')}`,reason:'',task:{workType:'DEVELOPMENT_ONLY',executionOrder:i,dependsOn:i>1?[`TASK-${String(i-1).padStart(3,'0')}`]:[],acceptanceCriteria:[`Task ${i} acceptance`],requiresHumanApproval:false,references:[],reviewRequired:false}});
+            for(let i=1;i<=34;i++)items.push({id:`CHECK-${String(i).padStart(2,'0')}`,kind:'検証',title:`Check ${i}`,body:'',status:'未確認',parentId:`TASK-${String(i).padStart(3,'0')}`,reason:''});
+            assert.equal(items.length,196);
+            const project={schemaVersion:1,id:'11111111-2222-4333-8444-555555555555',name:'負荷試験：修正版34仕様に基づく新規実装計画',purpose:'TSUGUネイティブ一括登録の公開実機E2E',rules:'承認・完了を推測しない',focus:'196項目の一括登録',baseline:'user-provided corpus',changeControlEnabled:true,next:'登録後に再読込確認',stage:'検討',implementationApproved:false,completionApproved:false,core:emptyCore(),items};
+            const fixtureText=JSON.stringify(project,null,2)+'\n';
+            fs.writeFileSync('native-bulk-import-fixture.json',fixtureText);
+            const fixtureHash=crypto.createHash('sha256').update(fixtureText).digest('hex');
+            const mainRef=await api(`/repos/${owner}/${repo}/git/ref/heads/main`);
+            await api(`/repos/${owner}/${repo}/git/refs`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:`refs/heads/${branch}`,sha:mainRef.object.sha})});
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:1440,height:1100}});
+            page.on('console',m=>console.log(`[browser:${m.type()}] ${m.text()}`));
+            page.on('dialog',async d=>{console.log(`[dialog:${d.type()}] ${d.message()}`);await d.accept();});
+            await page.addInitScript(({token,owner,repo})=>{
+              const nativeFetch=window.fetch.bind(window);
+              window.fetch=async(input,init={})=>{
+                const url=typeof input==='string'?input:input.url;
+                if(url==='https://api.github.com/user')return new Response(JSON.stringify({login:owner,id:1,type:'User'}),{status:200,headers:{'content-type':'application/json'}});
+                const h=new Headers(init.headers||(typeof input!=='string'?input.headers:undefined)||{});
+                if(url.startsWith('https://api.github.com/'))h.set('Authorization',`Bearer ${token}`);
+                const r=await nativeFetch(input,{...init,headers:h});
+                if(url===`https://api.github.com/repos/${owner}/${repo}`&&r.ok){const data=await r.clone().json();data.private=true;data.permissions={admin:true,maintain:true,push:true,pull:true};return new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json'}});}return r;
+              };
+            },{token,owner,repo});
+            async function connect(){
+              const inputs=page.locator('input');assert.ok(await inputs.count()>=4,'connection inputs missing');
+              await inputs.nth(0).fill(owner);await inputs.nth(1).fill(repo);await inputs.nth(2).fill(branch);await inputs.nth(3).fill('github_pat_e2e_placeholder');
+              await page.getByRole('button',{name:'接続',exact:true}).click();
+              await page.getByText(/GitHubから\d+件を読み込みました/).waitFor({timeout:30000});
+            }
+            let savedPath=null,importedId=null;
+            try{
+              await page.goto(`https://kj2whvbzjn-hue.github.io/tsugu/?nativeBulk=${Date.now()}`,{waitUntil:'networkidle',timeout:60000});
+              await connect();
+              const before=await projects();assert.equal(before.length,0,'test branch must start without project records');
+              const chooserPromise=page.waitForEvent('filechooser');
+              await page.getByRole('button',{name:'JSONから新規取込',exact:true}).click();
+              const chooser=await chooserPromise;
+              await chooser.setFiles({name:'native-bulk-import-fixture.json',mimeType:'application/json',buffer:Buffer.from(fixtureText)});
+              await page.getByRole('button',{name:'GitHubへ保存',exact:true}).waitFor({timeout:15000});
+              assert.match(await page.locator('body').innerText(),/負荷試験：修正版34仕様に基づく新規実装計画/);
+              await page.getByRole('button',{name:'GitHubへ保存',exact:true}).click();
+              await page.getByText(/GitHubへ保存しました。案件版 1/).waitFor({timeout:30000});
+              let created=null;
+              for(let i=0;i<15&&!created;i++){const rows=await projects();created=rows[0];if(!created)await page.waitForTimeout(1000);}
+              assert.ok(created,'saved project JSON not found');savedPath=created.path;
+              const file=await api(`/repos/${owner}/${repo}/contents/${created.path}?ref=${encodeURIComponent(branch)}`);
+              const record=JSON.parse(Buffer.from(file.content.replace(/\n/g,''),'base64').toString('utf8'));
+              importedId=record.project.id;
+              assert.equal(record.storageVersion,1);assert.equal(record.revision,1);assert.equal(record.project.schemaVersion,1);assert.notEqual(importedId,project.id,'import must allocate a new project ID');
+              assert.equal(record.project.items.length,196);
+              const counts=record.project.items.reduce((m,x)=>(m[x.kind]=(m[x.kind]||0)+1,m),{});
+              assert.deepEqual(counts,{'構成':35,'作業':127,'検証':34});
+              assert.equal(record.project.items.filter(x=>x.task).length,90);
+              assert.equal(record.project.items.some(x=>x.id==='GS-34'),true);assert.equal(record.project.items.some(x=>x.id==='TASK-090'),true);assert.equal(record.project.items.some(x=>x.id==='CHECK-34'),true);
+              assert.equal(record.project.core.securityVersion,1);assert.equal(record.project.core.auditEvents.length,1);
+              await page.screenshot({path:'native-bulk-import-saved.png',fullPage:true});
+              await page.reload({waitUntil:'networkidle',timeout:60000});
+              await connect();
+              await page.getByText(/負荷試験：修正版34仕様に基づく新規実装計画/).waitFor({timeout:15000});
+              await page.screenshot({path:'native-bulk-import-reloaded.png',fullPage:true});
+              const evidence={type:'TSUGUNativeBulkImportLiveEvidence',status:'PASS',runId:process.env.E2E_RUN_ID,branch,fixtureSha256:fixtureHash,savedPath,importedProjectId:importedId,revision:1,itemCounts:counts,taskMetadataCount:90,publishedUrl:'https://kj2whvbzjn-hue.github.io/tsugu/'};
+              fs.writeFileSync('native-bulk-import-evidence.json',JSON.stringify(evidence,null,2)+'\n');
+              console.log(JSON.stringify(evidence));
+            }finally{
+              await browser.close();
+              await api(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,{method:'DELETE'}).catch(e=>console.warn('cleanup branch failed',e.message));
+            }
+          })().catch(e=>{console.error(e.stack||e);process.exit(1);});
+          NODE
+
+      - name: Upload live bulk import evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-bulk-import-evidence-${{ github.run_id }}
+          path: |
+            native-bulk-import-fixture.json
+            native-bulk-import-evidence.json
+            native-bulk-import-saved.png
+            native-bulk-import-reloaded.png
+          if-no-files-found: ignore

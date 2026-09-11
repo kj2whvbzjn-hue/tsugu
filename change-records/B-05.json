@@ -5,7 +5,7 @@
     "b04ResultCommit": "cbb752d34a75c2f48671df520b1a3eea231068e7",
     "projectRevision": null
   },
-  "resultCommit": null,
+  "resultCommit": "2515f34c5af170f3565c1ca7aba59f49fd1ae6a2",
   "scope": [
     "PlannedChange stable PathEntry ID targets and base commit binding",
     "ActualChange base/head commit and merge comparison parent binding",
@@ -41,10 +41,13 @@
   "verificationEvidence": [
     "local isolated B-05 contract suite: 7/7 PASS",
     "node --check core-planned-actual-change.js/core-git-diff.js/core-planned-actual-change-changeset.js: PASS locally",
-    "deployment and repository-integrated E2E: pending GitHub Actions"
+    "Deploy TSUGU run 34611195337 for result commit 2515f34c5af170f3565c1ca7aba59f49fd1ae6a2: SUCCESS",
+    "TSUGU Planned Actual E2E run 34611232196: SUCCESS",
+    "B-05 E2E Verify B-05 contracts step: SUCCESS",
+    "B-05 E2E Verify published modules and GitHub Planned/Actual flow step: SUCCESS"
   ],
-  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
-  "completedAt": null,
+  "status": "PASS",
+  "completedAt": "2026-09-11T14:37:42Z",
   "nextTask": "B-06",
   "rollbackPlan": "Revert the B-05 source commit. B-05 is additive and leaves B-04 Evidence and existing app.js save flow intact."
 }

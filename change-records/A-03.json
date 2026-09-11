@@ -1,0 +1,48 @@
+{
+  "taskId": "A-03",
+  "baseline": {
+    "gitCommit": "a5eee7bbb6ed9ffa86fd78b60907bcec44b51977",
+    "a02ResultCommit": "6d5b2a292baeb6401d60dcb8e8ad9cc3572eb323",
+    "projectRevision": null
+  },
+  "scope": [
+    "ProjectArchitecture",
+    "ArchitectureNode",
+    "PathEntry",
+    "ArchitectureBinding"
+  ],
+  "acceptance": [
+    "Stable IDs survive rename and move and descendant references remain valid",
+    "ArchitectureNode and PathEntry are separate trees",
+    "Node and Path cycles are rejected",
+    "FILE cannot be a PathEntry parent",
+    "Sibling name collisions are rejected",
+    "PathEntry cannot move across repositories",
+    "Cross-project and out-of-scope repository references are rejected",
+    "Stage A Binding targets NODE only and rejects Box references",
+    "Binding relation, duplicate effective periods and referential integrity are validated",
+    "Binding history is retained by deactivation instead of destructive replacement",
+    "Architecture state serializes and hydrates deterministically",
+    "Public structural writes remain locked until A-04"
+  ],
+  "plannedFiles": [
+    "static/core-architecture.js",
+    "tests/core-architecture.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/architecture-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_A03.md",
+    "change-records/A-03.json"
+  ],
+  "verificationEvidence": [
+    "node --check static/core-architecture.js: PASS locally",
+    "node --test tests/core-architecture.test.cjs: 13/13 PASS locally",
+    "Deploy TSUGU: pending merge",
+    "TSUGU E2E: pending merge",
+    "TSUGU Architecture E2E: pending merge",
+    "TSUGU Core Reference E2E: pending merge"
+  ],
+  "status": "IN_PROGRESS",
+  "nextTask": "A-04",
+  "rollbackPlan": "Revert the A-03 result commit. A-03 does not enable public structural writes or migrate Private project data; do not restore any retired server runtime."
+}

@@ -1,0 +1,53 @@
+name: TSUGU C-04 Persist Verified Reload Fix
+
+on:
+  push:
+    branches: [vnext-c04-ui-usability-20260912]
+    paths:
+      - '.github/workflows/c04-persist-nostore.yml'
+      - 'static/app.js.gz.b64'
+
+permissions:
+  contents: write
+
+jobs:
+  persist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: vnext-c04-ui-usability-20260912
+          fetch-depth: 0
+      - name: Persist verified GitHub GET no-store repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/app.js
+          node --check /tmp/app.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/app.js')
+          s=p.read_text()
+          old="async function gh(path,init={},allow404=false){const r=await fetch(API+path,{...init,headers:{...ghHeaders(),...(init.headers||{})}});"
+          new="async function gh(path,init={},allow404=false){const method=String(init.method||'GET').toUpperCase();const r=await fetch(API+path,{...init,...(method==='GET'?{cache:'no-store'}:{}),headers:{...ghHeaders(),...(init.headers||{})}});"
+          if new in s:
+              print('verified no-store repair already present')
+          elif old in s:
+              s=s.replace(old,new,1)
+              p.write_text(s)
+          else:
+              raise SystemExit('GitHub fetch anchor not found')
+          PY
+          node --check /tmp/app.js
+          grep -q "method==='GET'?{cache:'no-store'}" /tmp/app.js
+          gzip -n -9 -c /tmp/app.js | base64 -w0 > static/app.js.gz.b64
+          printf '\n' >> static/app.js.gz.b64
+          if git diff --quiet -- static/app.js.gz.b64; then
+            echo 'No source change required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add static/app.js.gz.b64
+          git commit -m 'C-04: bypass stale GitHub GET cache on reload'
+          git push origin HEAD:vnext-c04-ui-usability-20260912

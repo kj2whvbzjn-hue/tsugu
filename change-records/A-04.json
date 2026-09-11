@@ -1,0 +1,50 @@
+{
+  "taskId": "A-04",
+  "baseline": {
+    "gitCommit": "098ccb09a17df7026ccaa4910fe22237b489f01a",
+    "a03ResultCommit": "8724be951e2925463ce844290d80f856143a42df",
+    "projectRevision": null
+  },
+  "scope": [
+    "ArchitectureChangeSet",
+    "ValidationRecord",
+    "ArchitectureAggregate",
+    "GitHub Contents API atomic Apply",
+    "STALE_CHANGESET",
+    "idempotency",
+    "AuditEvent and Outbox atomic reservation"
+  ],
+  "acceptance": [
+    "ChangeSet fixes project, base architecture revision, base Git blob SHA, payload hash, operations and preconditions",
+    "ValidationRecord fixes candidate hash, targets and result revision without inventing a commit",
+    "Apply revalidates current state, preconditions and ValidationRecord",
+    "Entity changes, AppliedChangeSet, AuditEvent and OutboxRecord are persisted in one aggregate JSON update",
+    "Concurrent/stale Apply is rejected as STALE_CHANGESET without partial changes",
+    "GitHub Contents API 409/422 CAS conflicts normalize to STALE_CHANGESET",
+    "Same idempotency key and same payload replays the prior logical result without another write",
+    "Same idempotency key with a different payload is rejected",
+    "Published Pages bundle exposes core-changeset.js",
+    "Actual GitHub temp-branch E2E proves one winner, one stale loser and readback integrity"
+  ],
+  "plannedFiles": [
+    "static/core-changeset.js",
+    "tests/core-changeset.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/changeset-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_A04.md",
+    "change-records/A-04.json"
+  ],
+  "verificationEvidence": [
+    "core-changeset local contract smoke tests: 6/6 PASS",
+    "node --test tests/core-changeset.test.cjs: pending merge",
+    "Deploy TSUGU: pending merge",
+    "TSUGU ChangeSet E2E: pending merge",
+    "TSUGU Architecture E2E: pending merge",
+    "TSUGU Core Reference E2E: pending merge",
+    "TSUGU E2E: pending merge"
+  ],
+  "status": "IN_PROGRESS",
+  "nextTask": "A-05",
+  "rollbackPlan": "Revert the A-04 result commit. The A-04 production boundary is additive and does not migrate Private project records. Do not restore retired server runtimes. Any failed CAS produces no A-04 aggregate commit."
+}

@@ -1,0 +1,59 @@
+name: TSUGU Architecture E2E
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tsugu-architecture-e2e
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify Architecture contracts
+        run: |
+          node --check static/core-architecture.js
+          node --test tests/core-architecture.test.cjs
+      - name: Verify published Architecture module
+        shell: bash
+        run: |
+          set -euo pipefail
+          public_url='https://kj2whvbzjn-hue.github.io/tsugu/core-architecture.js'
+          matched=0
+          for i in $(seq 1 12); do
+            curl -fsSL "${public_url}?run=${{ github.run_id }}-${i}" -o /tmp/public-core-architecture.js || true
+            if test -s /tmp/public-core-architecture.js && cmp -s static/core-architecture.js /tmp/public-core-architecture.js; then
+              matched=1
+              break
+            fi
+            sleep 5
+          done
+          test "$matched" = 1
+          node --check /tmp/public-core-architecture.js
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const core = require('/tmp/public-core-architecture.js');
+          let state = core.createProjectArchitecture({
+            projectId: 'published-e2e-project',
+            repositoryScopes: [{ repositoryId: 1363396531, fullName: 'kj2whvbzjn-hue/tsugu' }]
+          });
+          state = core.addArchitectureNode(state, { id: 'node-root', name: 'Root' });
+          state = core.addPathEntry(state, { id: 'path-src', repositoryId: 1363396531, kind: 'DIRECTORY', name: 'src' });
+          state = core.addPathEntry(state, { id: 'path-file', repositoryId: 1363396531, kind: 'FILE', name: 'app.js', parentPathEntryId: 'path-src' });
+          state = core.addBinding(state, { id: 'binding-1', pathEntryId: 'path-file', architectureNodeId: 'node-root', relation: 'IMPLEMENTS' });
+          assert.equal(core.derivePath(state, 'path-file'), 'src/app.js');
+          assert.equal(core.hydrate(core.serialize(state)).bindings[0].id, 'binding-1');
+          assert.equal(core.PUBLIC_WRITE_ENABLED, false);
+          assert.throws(() => core.assertPublicWriteEnabled(), /STRUCTURE_WRITE_LOCKED_UNTIL_A04/);
+          console.log(`ARCHITECTURE PUBLIC MODULE OK revision=${state.project.revision} bindings=${state.bindings.length}`);
+          NODE

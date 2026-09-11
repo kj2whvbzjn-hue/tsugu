@@ -1,0 +1,163 @@
+{
+  "storageVersion": 1,
+  "project": {
+    "schemaVersion": 1,
+    "id": "8aeaaedf-1ee1-4620-ac23-b2fe74f11f5b",
+    "name": "C-04 UI/使用性テスト計画 v1（取込）",
+    "purpose": "事前固定したUI/使用性/上下遷移/操作効率の受入計画をPlaywright実機で登録・実行する",
+    "rules": "結果確認後に合格基準を緩めない。承認・完了状態を推測変更しない。",
+    "focus": "Mobile 390x844 / Desktop 1440x1000、ページ遷移・上下遷移・クリック効率・保存削除reload",
+    "baseline": "C-04|version=1|static/c04-ui-usability-plan.json",
+    "changeControlEnabled": true,
+    "next": "登録済み計画と同一基準でPlaywright E2Eを実行しFAILをUI改善へ返す",
+    "stage": "検討",
+    "implementationApproved": false,
+    "completionApproved": false,
+    "core": {
+      "architectureNodes": [],
+      "workBoxes": [],
+      "tasks": [],
+      "decisions": [],
+      "issues": [],
+      "checks": [],
+      "approvals": [],
+      "evidences": [],
+      "evidenceVersions": [],
+      "repositories": [],
+      "repositoryBaselines": [],
+      "pathEntries": [],
+      "plannedChanges": [],
+      "actualChanges": [],
+      "relations": [],
+      "securityVersion": 1,
+      "actors": [
+        {
+          "id": "github:1",
+          "login": "kj2whvbzjn-hue",
+          "githubUserId": 1,
+          "githubType": "User",
+          "source": "github:/user",
+          "observedAt": "2026-09-11T23:24:03.596Z"
+        }
+      ],
+      "permissions": [
+        {
+          "id": "project:8aeaaedf-1ee1-4620-ac23-b2fe74f11f5b:actor:github:1",
+          "projectId": "8aeaaedf-1ee1-4620-ac23-b2fe74f11f5b",
+          "actorId": "github:1",
+          "role": "PROJECT_ADMIN",
+          "source": "github_repository_permission",
+          "repository": "kj2whvbzjn-hue/tsugu",
+          "observedAt": "2026-09-11T23:24:03.596Z"
+        }
+      ],
+      "auditEvents": [
+        {
+          "id": "d64ea92f-65c7-475d-96dd-1a6332f3cd54",
+          "projectId": "8aeaaedf-1ee1-4620-ac23-b2fe74f11f5b",
+          "actorId": "github:1",
+          "actorLogin": "kj2whvbzjn-hue",
+          "action": "PROJECT_CREATE",
+          "recordRevision": 1,
+          "baseBlobSha": null,
+          "payloadHash": "sha256:d36acca395c6cec5814aada74fb0c2ea6571a1fcb5c858bf2f584eba2290fdf6",
+          "at": "2026-09-11T23:24:03.596Z"
+        }
+      ]
+    },
+    "items": [
+      {
+        "id": "UI-01",
+        "kind": "検証",
+        "title": "Initial connection and empty workspace comprehension",
+        "body": "Actions\n[\n  \"open published TSUGU\",\n  \"enter owner/repository/branch/token\",\n  \"connect\"\n]\n\nPass\n[\n  \"connection succeeds\",\n  \"empty project count is understandable\",\n  \"new/import/reload/disconnect controls are visible\",\n  \"no horizontal overflow\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      },
+      {
+        "id": "UI-02",
+        "kind": "検証",
+        "title": "Register this frozen C-04 plan through the real import/save UI",
+        "body": "Actions\n[\n  \"JSONから新規取込\",\n  \"select generated schemaVersion 1 C-04 plan project\",\n  \"GitHubへ保存\",\n  \"read back saved JSON from GitHub\"\n]\n\nPass\n[\n  \"new project ID is allocated\",\n  \"revision is 1\",\n  \"plan identity C-04/version 1 is preserved in the saved project\",\n  \"save state is visibly distinguishable\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      },
+      {
+        "id": "UI-03",
+        "kind": "検証",
+        "title": "Register representative 196-item workload through the real UI",
+        "body": "Actions\n[\n  \"JSONから新規取込\",\n  \"select 196-item native project\",\n  \"GitHubへ保存\",\n  \"read back\"\n]\n\nPass\n[\n  \"196 items persist\",\n  \"35 構成 / 127 作業 / 34 検証\",\n  \"90 task metadata rows persist\",\n  \"no approval is added\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      },
+      {
+        "id": "UI-04",
+        "kind": "検証",
+        "title": "Mobile layout and primary control visibility",
+        "body": "Actions\n[]\n\nPass\n[\n  \"document scrollWidth <= viewport width + 1px\",\n  \"primary controls are not clipped\",\n  \"primary touch targets are at least 44x44 CSS px\",\n  \"fixed overlays do not cover the center point of active controls\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      },
+      {
+        "id": "UI-05",
+        "kind": "検証",
+        "title": "Desktop layout and primary control visibility",
+        "body": "Actions\n[]\n\nPass\n[\n  \"document scrollWidth <= viewport width + 1px\",\n  \"primary controls are not clipped\",\n  \"fixed overlays do not cover the center point of active controls\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      },
+      {
+        "id": "UI-06",
+        "kind": "検証",
+        "title": "Vertical traversal efficiency",
+        "body": "Actions\n[\n  \"from top controls open 項目\",\n  \"inspect from first visible item toward the last item\",\n  \"return to primary controls\",\n  \"inspect lower overview/approval content\"\n]\n\nPass\n[\n  \"per-task vertical direction reversals <= 1\",\n  \"mobile total direction reversals <= 3\",\n  \"desktop total direction reversals <= 2\",\n  \"down-up-down or up-down-up oscillation for one objective = 0\",\n  \"no return by >= one viewport followed by re-traversal toward the same target\",\n  \"scroll targets are not hidden under fixed overlays\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      },
+      {
+        "id": "UI-07",
+        "kind": "検証",
+        "title": "Tab and in-page interaction efficiency",
+        "body": "Actions\n[]\n\nPass\n[\n  \"概要/項目/AI引き継ぎ/高度なJSON switch without document navigation\",\n  \"same-purpose duplicate click = 0\",\n  \"unintended full page navigation = 0\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      },
+      {
+        "id": "UI-08",
+        "kind": "検証",
+        "title": "Save/reload state comprehension",
+        "body": "Actions\n[\n  \"reload browser\",\n  \"reconnect\",\n  \"select saved workload\",\n  \"GitHubから再読込\"\n]\n\nPass\n[\n  \"saved workload is rediscovered\",\n  \"revision/sync status remains understandable\",\n  \"no duplicate record is created by reload\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      },
+      {
+        "id": "UI-09",
+        "kind": "検証",
+        "title": "Destructive action clarity and cleanup",
+        "body": "Actions\n[\n  \"delete workload test project\",\n  \"reload from GitHub\",\n  \"delete C-04 plan test project\",\n  \"reload from GitHub\"\n]\n\nPass\n[\n  \"destructive confirmation is shown\",\n  \"only selected test project is removed\",\n  \"list count decreases exactly by one per delete\",\n  \"deleted project does not reappear after reload\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      },
+      {
+        "id": "UI-10",
+        "kind": "検証",
+        "title": "Runtime quality",
+        "body": "Actions\n[]\n\nPass\n[\n  \"unhandled page errors = 0\",\n  \"unexpected API 4xx/5xx = 0\",\n  \"unexpected console error messages = 0\"\n]",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 frozen acceptance plan v1"
+      }
+    ]
+  },
+  "revision": 1,
+  "updatedAt": "2026-09-11T23:24:03.594Z"
+}

@@ -1,0 +1,85 @@
+name: TSUGU Sync Recovery E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'static/core-sync-recovery.js'
+      - 'tests/core-sync-recovery.test.cjs'
+      - 'scripts/c03-load-probe.cjs'
+      - 'docs/TSUGU_CORE_VNEXT_C03.md'
+      - 'docs/TSUGU_CORE_VNEXT_C03_LOAD_PROFILE.json'
+      - 'static/index.html'
+      - '.github/workflows/pages.yml'
+      - '.github/workflows/sync-recovery-e2e.yml'
+      - 'change-records/C-03.json'
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source result
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
+      - name: Verify C-03 recovery contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check static/core-sync-recovery.js
+          node --check tests/core-sync-recovery.test.cjs
+          node --check scripts/c03-load-probe.cjs
+          node --test tests/core-sync-recovery.test.cjs
+      - name: Run non-acceptance engineering load probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          node scripts/c03-load-probe.cjs docs/TSUGU_CORE_VNEXT_C03_LOAD_PROFILE.json evidence/c03-load-probe.json
+          node - <<'NODE'
+          const e=require('./evidence/c03-load-probe.json');
+          if(e.profile.approved!==false) throw new Error('Engineering profile must remain explicitly unapproved until human agreement');
+          if(e.assessment.status!=='AWAITING_PROFILE_APPROVAL') throw new Error(`Unexpected assessment: ${e.assessment.status}`);
+          if(!(e.result.syncMs>=0&&e.result.recalculationMs>=0)) throw new Error('latency metrics missing');
+          NODE
+      - name: Verify published C-03 module
+        if: github.event_name == 'workflow_run'
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-sync-recovery.js?sha=${SOURCE_SHA}" -o /tmp/core-sync-recovery.js
+          cmp static/core-sync-recovery.js /tmp/core-sync-recovery.js
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/index.html?sha=${SOURCE_SHA}" -o /tmp/index.html
+          grep -F 'core-sync-recovery.js?v=core-vnext-c03' /tmp/index.html
+      - name: Write C-03 recovery evidence summary
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const load=JSON.parse(fs.readFileSync('evidence/c03-load-probe.json','utf8'));
+          fs.writeFileSync('evidence/c03-sync-recovery.json',JSON.stringify({
+            type:'C03SyncRecoveryE2EEvidence',sourceSha:process.env.SOURCE_SHA,eventName:process.env.GITHUB_EVENT_NAME,runId:process.env.GITHUB_RUN_ID,
+            recoveryContracts:'PASS',publishedVerification:process.env.GITHUB_EVENT_NAME==='workflow_run'?'PASS':'POST_DEPLOY_ONLY',
+            loadProbe:{profileId:load.profile.id,approved:load.profile.approved,syncMs:load.result.syncMs,recalculationMs:load.result.recalculationMs,assessment:load.assessment.status},
+            c03Acceptance:'BLOCKED_UNTIL_APPROVED_LOAD_PROFILE'
+          },null,2)+'\n');
+          NODE
+      - name: Upload C-03 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: c03-sync-recovery-${{ github.run_id }}
+          path: evidence/

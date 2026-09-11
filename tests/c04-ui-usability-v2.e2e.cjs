@@ -181,7 +181,7 @@ async function lookupObjective(page,id,maxTravel){
     await page.locator('#clearItemFilter').click();
     await page.locator('#itemKindFilter').selectOption({label:'検証'});await page.waitForTimeout(100);
     assert.match((await page.locator('.item-result-head strong').textContent()),/\/ 34$/);assert.ok(await visibleItemRows(page)<=20);
-    assert.equal((await page.locator('[data-item-row]').evaluateAll(rows=>rows.every(r=>(r.textContent||'').includes('検証'))),true));
+    assert.equal(await page.locator('[data-item-row]').evaluateAll(rows=>rows.every(r=>(r.textContent||'').includes('検証'))),true);
     const navBefore=evidence.navigation.length;await page.locator('#itemNext').click();await page.waitForTimeout(100);assert.equal(evidence.navigation.length,navBefore,'pager navigated document');assert.ok(await visibleItemRows(page)<=20);assert.match((await page.locator('.item-result-head .muted').textContent()),/ページ 2/);
     await page.locator('#clearItemFilter').click();await page.locator('#itemStatusFilter').selectOption({label:'未着手'});await page.waitForTimeout(100);
     assert.match((await page.locator('.item-result-head strong').textContent()),/\/ 112$/);assert.ok(await visibleItemRows(page)<=20);

@@ -1,0 +1,53 @@
+{
+  "taskId": "B-02",
+  "baseline": {
+    "gitCommit": "4d3fb437d3839c94b919eb5b9e671b3a1f7924b4",
+    "b01ResultCommit": "92b0e488941b1a46e9a1b7387ee414695638c92a",
+    "projectRevision": null
+  },
+  "scope": [
+    "RuleDefinition and RuleBinding",
+    "comparable Rule inheritance/intersection",
+    "TestDefinition",
+    "RequirementSource and TestRequirement derivation",
+    "ManualRequirementEdit separation",
+    "RequirementSnapshot Draft/FINAL gate",
+    "RuleTestChangeSet and GitHub CAS Apply"
+  ],
+  "acceptance": [
+    "Effective Rules expose exact Rule origin, version, binding and inheritance path",
+    "Requirement derivation is idempotent by source, target and definition versions",
+    "Manual requirement edits remain separate from generated fields and survive re-derivation",
+    "Comparable parent/child constraints are intersected conservatively",
+    "Opaque or otherwise incomparable combinations produce CONFLICT without semantic guessing",
+    "supersede alone cannot weaken a Rule; B-02 has no active Waiver path",
+    "Published RuleDefinition and TestDefinition contents are fixed by SHA-256",
+    "Draft RequirementSnapshot can be saved independently of FINAL eligibility",
+    "FINAL RequirementSnapshot fixes TestRequirement version, source BoxDefinition version, Effective Rules, inheritance path, evaluation conditions and TestDefinition version",
+    "FINAL gate rejects CONFLICT, stale or empty requirement sets",
+    "Persistent B-02 changes require RuleTestChangeSet with base revision and Git blob SHA CAS",
+    "Apply writes domain state, Audit and Outbox atomically and uses commit-pinned readback",
+    "Existing Stage A/B-01 UI storage path is not modified"
+  ],
+  "plannedFiles": [
+    "static/core-rule-test.js",
+    "static/core-rule-test-changeset.js",
+    "tests/core-rule-test.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/rule-test-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_B02.md",
+    "change-records/B-02.json"
+  ],
+  "verificationEvidence": [
+    "node --check core-rule-test.js/core-rule-test-changeset.js: PASS locally",
+    "B-02 local isolated contract suite: 14/14 PASS",
+    "Repository-integrated contract suite: pending merge",
+    "Deploy TSUGU: pending merge",
+    "TSUGU Rule Test E2E: pending merge",
+    "Stage A/B-01/A-05 regression workflows: pending merge"
+  ],
+  "status": "IN_PROGRESS",
+  "nextTask": "B-03",
+  "rollbackPlan": "Revert the B-02 result commit. B-02 is additive and does not rewrite the current app.js save flow or remove B-01 data. Do not restore retired server runtimes."
+}

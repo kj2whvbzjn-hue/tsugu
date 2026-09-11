@@ -26,17 +26,22 @@ jobs:
           from pathlib import Path
           p = Path('/tmp/app.js')
           text = p.read_text()
-          replacements = [
+          required = [
             ('GitHub Pages 静的版 — 公開UIと案件データを分離し、案件データはPrivate GitHubリポジトリに保存します。', 'TSUGU — 案件データはPrivate GitHubリポジトリに保存します。'),
             ('GitHub static workspace', 'GitHub workspace'),
-            ('GitHub静的版では、AI連携は引き継ぎテキストと返却JSONで行います。', '現在のTSUGUでは、AI連携は引き継ぎテキストと返却JSONで行います。'),
             ('静的ページには固定トークンを埋め込みません。', 'TSUGUには固定トークンを埋め込みません。'),
           ]
-          for old, new in replacements:
+          for old, new in required:
               n = text.count(old)
               if n != 1:
                   raise SystemExit(f'expected exactly one match, got {n}: {old}')
               text = text.replace(old, new, 1)
+          text = text.replace('GitHub静的版', 'TSUGU')
+          text = text.replace('GitHub Pages 静的版', 'TSUGU')
+          text = text.replace('静的版', 'TSUGU')
+          text = text.replace('静的ページ', 'TSUGU')
+          if 'static workspace' in text or '静的版' in text or '静的ページ' in text:
+              raise SystemExit('obsolete edition wording remains')
           p.write_text(text)
           PY
           node --check /tmp/app.js

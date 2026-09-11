@@ -8,14 +8,20 @@
   if (root && root.document) root.TSUGUCoreSyncReconcile = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root, Sync) {
   'use strict';
+
+  const DEFAULT_READBACK_ATTEMPTS = 6;
+  const DEFAULT_READBACK_DELAY_MS = 200;
+
   function error(code,message,detail){const e=new Error(`${code}: ${message}`);e.code=code;if(detail!==undefined)e.detail=detail;return e;}
   function requireSync(){if(!Sync)throw error('CORE_SYNC_REQUIRED','TSUGUCoreSync が必要です');return Sync;}
   function id(v,f){const x=String(v||'').trim();if(!x)throw error('INVALID_ID',`${f} が必要です`);return x;}
+  function positiveInt(v,f){const n=Number(v);if(!Number.isSafeInteger(n)||n<=0)throw error('INVALID_INTEGER',`${f} は正の整数である必要があります`);return n;}
   function split(fullName,field){const v=id(fullName,field),m=v.match(/^([^/\s]+)\/([^/\s]+)$/);if(!m)throw error('INVALID_REPOSITORY',`${field} は owner/name 形式である必要があります`);return{fullName:v,owner:m[1],repo:m[2]};}
   function b64e(t){return typeof Buffer!=='undefined'?Buffer.from(t,'utf8').toString('base64'):btoa(unescape(encodeURIComponent(t)));}
   function b64d(t){return typeof Buffer!=='undefined'?Buffer.from(String(t).replace(/\n/g,''),'base64').toString('utf8'):decodeURIComponent(escape(atob(String(t).replace(/\n/g,''))));}
   function headers(options){const h={Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(options.headers||{})};if(options.token)h.Authorization=`Bearer ${options.token}`;return h;}
   async function json(fetchImpl,url,options={}){const r=await fetchImpl(url,options),t=await r.text();let b=null;try{b=t?JSON.parse(t):null;}catch{b={message:t};}return{response:r,body:b};}
+  async function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
 
   async function captureHead(options={}){
     const fetchImpl=options.fetch||(root&&root.fetch);if(typeof fetchImpl!=='function')throw error('FETCH_REQUIRED','fetch実装が必要です');
@@ -25,6 +31,35 @@
     if(!branchResult.response.ok)throw error('GITHUB_BRANCH_READ_FAILED',`${branchResult.response.status}`,branchResult.body);
     const sha=String(branchResult.body.commit&&branchResult.body.commit.sha||'').toLowerCase();if(!/^[a-f0-9]{40}$/.test(sha))throw error('INVALID_GIT_SHA','branch head SHAが不正です');
     return Object.freeze({repository:repoResult.body,branch,commitSha:sha});
+  }
+
+  async function readbackReceived(options){
+    const s=requireSync(),attempts=positiveInt(options.readbackAttempts==null?DEFAULT_READBACK_ATTEMPTS:options.readbackAttempts,'readbackAttempts'),delayMs=positiveInt(options.readbackDelayMs==null?DEFAULT_READBACK_DELAY_MS:options.readbackDelayMs,'readbackDelayMs');
+    let last=null;
+    for(let attempt=1;attempt<=attempts;attempt++){
+      const back=await json(options.fetchImpl,options.read,{headers:options.headers});
+      if(back.response.ok){
+        try{
+          const stored=s.validateSyncAggregate(JSON.parse(b64d(back.body.content)));
+          const record=stored.integrations.find(x=>x.id===options.integrationId),job=stored.jobs.find(x=>x.integrationRecordId===options.integrationId);
+          last={back,stored,record,job};
+          const blobOk=!options.expectedBlobSha||back.body.sha===options.expectedBlobSha;
+          const revisionOk=stored.revision===options.expectedRevision;
+          if(record&&job&&blobOk&&revisionOk)return last;
+        }catch(e){last={error:e,back};}
+      }else last={back};
+      if(attempt<attempts)await sleep(delayMs*attempt);
+    }
+    throw error('SYNC_READBACK_MISMATCH','IntegrationRecord/SyncJobが期待revision/blob SHAでreadbackに現れません',{
+      integrationId:options.integrationId,
+      expectedRevision:options.expectedRevision,
+      expectedBlobSha:options.expectedBlobSha||null,
+      observedRevision:last&&last.stored&&last.stored.revision||null,
+      observedBlobSha:last&&last.back&&last.back.body&&last.back.body.sha||null,
+      observedRecord:!!(last&&last.record),
+      observedJob:!!(last&&last.job),
+      status:last&&last.back&&last.back.response&&last.back.response.status||null
+    });
   }
 
   async function refreshAndPersist(options={}){
@@ -41,10 +76,16 @@
     const payload={message:options.message||`Receive GitHub head ${head.repository.full_name}@${head.commitSha.slice(0,12)}`,content:b64e(s.stableStringify(received.aggregate)),branch:ledgerBranch};if(blobSha)payload.sha=blobSha;
     const write=await json(fetchImpl,content,{method:'PUT',headers:{...h,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!write.response.ok){if(write.response.status===409||write.response.status===422)throw error('STALE_SYNC_LEDGER','sync ledger CAS競合。再refreshが必要です',write.body);throw error('GITHUB_SYNC_LEDGER_WRITE_FAILED',`${write.response.status}`,write.body);}
-    const back=await json(fetchImpl,read,{headers:h});if(!back.response.ok)throw error('GITHUB_SYNC_LEDGER_READBACK_FAILED',`${back.response.status}`,back.body);
-    const stored=s.validateSyncAggregate(JSON.parse(b64d(back.body.content))),record=stored.integrations.find(x=>x.id===received.integrationRecord.id),job=stored.jobs.find(x=>x.integrationRecordId===received.integrationRecord.id);
-    if(!record||!job)throw error('SYNC_READBACK_MISMATCH','IntegrationRecord/SyncJobがreadbackにありません');
-    return Object.freeze({status:received.status,head,aggregate:stored,integrationRecord:record,syncJob:job,blobSha:back.body.sha,commitSha:write.body&&write.body.commit&&write.body.commit.sha||null});
+    const expectedBlobSha=write.body&&write.body.content&&write.body.content.sha||null;
+    const visible=await readbackReceived({
+      fetchImpl,read,headers:h,
+      integrationId:received.integrationRecord.id,
+      expectedRevision:received.aggregate.revision,
+      expectedBlobSha,
+      readbackAttempts:options.readbackAttempts,
+      readbackDelayMs:options.readbackDelayMs
+    });
+    return Object.freeze({status:received.status,head,aggregate:visible.stored,integrationRecord:visible.record,syncJob:visible.job,blobSha:visible.back.body.sha,commitSha:write.body&&write.body.commit&&write.body.commit.sha||null});
   }
-  return Object.freeze({captureHead,refreshAndPersist});
+  return Object.freeze({DEFAULT_READBACK_ATTEMPTS,DEFAULT_READBACK_DELAY_MS,captureHead,refreshAndPersist});
 });

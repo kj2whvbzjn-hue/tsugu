@@ -85,3 +85,4 @@ test('hydrate validation rejects duplicate business integrations and orphan jobs
 });
 
 require('./core-sync-storage.test.cjs');
+require('./core-sync-reconcile.test.cjs');

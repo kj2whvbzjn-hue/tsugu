@@ -5,7 +5,7 @@
     "c01ResultCommit": "ff81e6039b95c9d392bcc8497220e7ae14cd8d7f",
     "projectRevision": null
   },
-  "resultCommit": null,
+  "resultCommit": "56ab4771a17b2bfe80202371d066a0dfdb134a9d",
   "scope": [
     "derived Architecture Health over B-06 Assurance/Event and C-01 Impact Graph",
     "evaluation-generation aware differential recalculation",
@@ -35,12 +35,15 @@
     "change-records/C-02.json"
   ],
   "verificationEvidence": [
-    "node --check core-architecture-health.js and core-architecture-health.test.cjs: PASS locally",
-    "real B-03/B-04/B-06/C-01 connected contract suite: pending GitHub Actions",
-    "published module and cache rebuild verification: pending post-deploy GitHub Actions"
+    "node --check core-architecture-health.js and core-architecture-health.test.cjs: PASS locally; GitHub module/test blob SHAs matched locally verified blobs exactly",
+    "PR #22 TSUGU Architecture Health E2E run 34645104006: PASS for C-02 differential Health contracts and deterministic cache delete/rebuild",
+    "PR #22 C-01 Impact Graph regression run 34645103882: PASS",
+    "PR #22 Stage B MVP regression run 34645103916: PASS for ten-scenario acceptance and operations guide UI",
+    "Deploy TSUGU run 34645181837 for resultCommit 56ab4771a17b2bfe80202371d066a0dfdb134a9d: PASS",
+    "post-deploy TSUGU Architecture Health E2E run 34645220692: PASS for contracts, published module exact comparison, deterministic cache delete/rebuild, and evidence upload"
   ],
-  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
-  "completedAt": null,
+  "status": "PASS",
+  "completedAt": "2026-09-11T20:38:17Z",
   "nextTask": "C-03",
   "rollbackPlan": "Revert the C-02 source commit. ArchitectureHealthSnapshot and its cache are derived state; deleting the cache and rebuilding from Stage B/C-01 authoritative state is the recovery path."
 }

@@ -36,8 +36,6 @@ jobs:
             '.b04bundle/TSUGU_CORE_VNEXT_B04.md.gz.b64': 'docs/TSUGU_CORE_VNEXT_B04.md',
             '.b04bundle/B-04.json.gz.b64': 'change-records/B-04.json',
             '.b04bundle/index.html.gz.b64': 'static/index.html',
-            '.b04bundle/pages.yml.gz.b64': '.github/workflows/pages.yml',
-            '.b04bundle/check-evidence-e2e.yml.gz.b64': '.github/workflows/check-evidence-e2e.yml',
           }
           for source, target in mapping.items():
             raw = Path(source).read_text().strip()
@@ -56,8 +54,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add static/core-check-evidence.js static/core-evidence-storage.js static/core-check-evidence-changeset.js tests/core-check-evidence.test.cjs docs/TSUGU_CORE_VNEXT_B04.md change-records/B-04.json static/index.html .github/workflows/pages.yml .github/workflows/check-evidence-e2e.yml
+          git add static/core-check-evidence.js static/core-evidence-storage.js static/core-check-evidence-changeset.js tests/core-check-evidence.test.cjs docs/TSUGU_CORE_VNEXT_B04.md change-records/B-04.json static/index.html
           git rm -r .b04bundle
-          git rm .github/workflows/b04-materialize.yml
           git commit -m 'Implement B-04 Check Evidence contracts'
           git push origin HEAD:vnext-b04-20260911

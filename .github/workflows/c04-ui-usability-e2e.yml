@@ -55,6 +55,8 @@ jobs:
           node --check tests/.c04-ui-usability.e2e.cjs
           test "$(sha256sum tests/.c04-ui-usability.e2e.cjs | awk '{print $1}')" = "998a299116a253f358aa2ba91a6bff9b310ede7fe2fe49de754aa1bea4008e45"
           node -e "const p=require('./static/c04-ui-usability-plan.json'); if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==1)process.exit(1)"
+          echo '--- C-04 delete/reload diagnostic source ---'
+          nl -ba tests/.c04-ui-usability.e2e.cjs | sed -n '180,205p'
 
       - name: Build candidate Pages site
         if: ${{ github.event_name == 'pull_request' }}

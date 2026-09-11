@@ -1,0 +1,61 @@
+name: B03 Stage Rebuild
+
+on:
+  push:
+    branches: [b03-stage-20260911]
+    paths:
+      - '.b03-payload/READY'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: b03-stage-rebuild
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Reconstruct B-03 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p static tests docs change-records .github/workflows
+          cat .b03-payload/core-task.*.b64 | base64 --decode > static/core-task.js
+          cat .b03-payload/core-task-changeset.*.b64 | base64 --decode > static/core-task-changeset.js
+          cat .b03-payload/test.*.b64 | base64 --decode > tests/core-task.test.cjs
+          cat .b03-payload/index.*.b64 | base64 --decode > static/index.html
+          cat .b03-payload/pages.*.b64 | base64 --decode > .github/workflows/pages.yml
+          cat .b03-payload/workflow.*.b64 | base64 --decode > .github/workflows/task-e2e.yml
+          cat .b03-payload/doc.*.b64 | base64 --decode > docs/TSUGU_CORE_VNEXT_B03.md
+          cat .b03-payload/record.*.b64 | base64 --decode > change-records/B-03.json
+          printf '%s\n' \
+            '5d1e41a202b2ca14cbcbe6253c291cdab1bf876f37dc5f8668d2e6aa70f098ae  static/core-task.js' \
+            '9c8a5903d90965a1ca72612e30ea32ae5fbaa097490e837785bc4cead3b80d48  static/core-task-changeset.js' \
+            '1e5e6fe7531d055e4d721000143b4480eb2f46c3db270595d5872d5ec861dc2f  tests/core-task.test.cjs' \
+            '4a163532f0fcba99e0bc51dd4a05510abc30d4864defdef42ea448caf32f1d94  static/index.html' \
+            '10e90baf9bef0de8727696a099bd8a792049ec56671477ddf86bb003225aabbd  .github/workflows/pages.yml' \
+            '10839b506653a32f380c7fa32f617ee0d01b8d50fb3a2a96b5d7c80eb6dc3217  .github/workflows/task-e2e.yml' \
+            'c5aba1d4789cc87d7ebd4d6710d6accd1771b81f1a54522953f80ad97cf641bd  docs/TSUGU_CORE_VNEXT_B03.md' \
+            '7b0fe0b97319a6b166a03a5cd28362ea7df86521054e4bfc4c13784b27168669  change-records/B-03.json' | sha256sum -c -
+      - name: Verify B-03 against repository dependencies
+        run: |
+          set -euo pipefail
+          node --check static/core-task.js
+          node --check static/core-task-changeset.js
+          node --check tests/core-task.test.cjs
+          node --test tests/core-task.test.cjs
+      - name: Commit reconstructed B-03
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .b03-payload
+          rm -f .github/workflows/b03-stage.yml
+          git add -A
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'Core vNext B-03: Task Approval Waiver Decision Issue'
+          git push origin HEAD:b03-stage-20260911

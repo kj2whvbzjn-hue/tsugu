@@ -33,11 +33,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _site
-          cp static/index.html static/styles.css static/favicon.svg static/core-reference.js static/core-architecture.js static/core-changeset.js static/core-sync.js static/core-sync-storage.js static/core-sync-reconcile.js static/core-sync-admin.js static/core-guard.js _site/
+          cp static/index.html static/styles.css static/favicon.svg static/core-reference.js static/core-architecture.js static/core-changeset.js static/core-box.js static/core-box-changeset.js static/core-sync.js static/core-sync-storage.js static/core-sync-reconcile.js static/core-sync-admin.js static/core-guard.js _site/
           base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
           node --check _site/core-reference.js
           node --check _site/core-architecture.js
           node --check _site/core-changeset.js
+          node --check _site/core-box.js
+          node --check _site/core-box-changeset.js
           node --check _site/core-sync.js
           node --check _site/core-sync-storage.js
           node --check _site/core-sync-reconcile.js

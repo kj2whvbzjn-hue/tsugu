@@ -1,4 +1,5 @@
 name: TSUGU C-04 UI Usability v2 E2E
+# Acceptance criteria remain frozen; this commit only re-runs the repaired harness.
 
 on:
   pull_request:

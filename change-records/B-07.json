@@ -1,0 +1,44 @@
+{
+  "taskId": "B-07",
+  "baseline": {
+    "gitCommit": "836a6f1034ce9a8c60a0865ce892b51743b20fcf",
+    "b06ResultCommit": "836a6f1034ce9a8c60a0865ce892b51743b20fcf",
+    "projectRevision": null
+  },
+  "resultCommit": null,
+  "scope": [
+    "plan v2.3 chapter 9 ten-scenario Stage B acceptance execution",
+    "machine-readable scenario-to-contract traceability",
+    "per-run JSON acceptance evidence with source SHA and exit codes",
+    "post-deploy published artifact and operations-guide verification",
+    "real GitHub Contents API CAS race and retry verification",
+    "human operations guidance for purpose/change/evidence/unresolved/next-work tracing"
+  ],
+  "acceptance": [
+    "exactly ten chapter 9 scenarios are enumerated and executed",
+    "FAIL repair, approval reject/accept, delayed PASS, multiple Hold reasons and final approval are covered by current Stage B contracts",
+    "evidence retry, sync interruption/order reversal and concurrent/double Apply contracts pass without partial authoritative state",
+    "post-merge GitHub CAS race permits exactly one writer for the same blob SHA and a fresh-SHA retry succeeds",
+    "published scenario manifest and main index match the result commit",
+    "the Stage B operations guide is visible, keyboard-operable and reload-safe",
+    "an operator can trace purpose, change, evidence, unresolved conditions and next work without treating stale generation results as current"
+  ],
+  "plannedFiles": [
+    "static/stage-b-mvp-scenarios.json",
+    "tests/stage-b-mvp-acceptance.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/stage-b-mvp-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_B07.md",
+    "change-records/B-07.json"
+  ],
+  "verificationEvidence": [
+    "ten-scenario contract acceptance: pending GitHub Actions",
+    "operations-guide local/published Playwright smoke: pending GitHub Actions",
+    "real GitHub content CAS race/retry: pending post-deploy GitHub Actions"
+  ],
+  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
+  "completedAt": null,
+  "nextTask": "C-01",
+  "rollbackPlan": "Revert the B-07 source commit. B-07 adds acceptance/operations guidance only and does not migrate or weaken B-01 through B-06 persisted domain state."
+}

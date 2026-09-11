@@ -27,15 +27,15 @@ jobs:
           from pathlib import Path
           p=Path('/tmp/app.js')
           s=p.read_text()
-          if s.count('const pageSize=20') != 1:
-              raise SystemExit('expected current pageSize=20 exactly once')
-          s=s.replace('const pageSize=20','const pageSize=10',1)
-          s=s.replace('検索・絞り込み・20件単位の表示で直接対象へ移動します。','検索・絞り込み・10件単位の表示で直接対象へ移動します。',1)
+          if s.count('const pageSize=10') != 1:
+              raise SystemExit('expected current pageSize=10 exactly once')
+          s=s.replace('const pageSize=10','const pageSize=8',1)
+          s=s.replace('検索・絞り込み・10件単位の表示で直接対象へ移動します。','検索・絞り込み・8件単位の表示で直接対象へ移動します。',1)
           p.write_text(s)
           PY
           node --check /tmp/app.js
           grep -q "cache:'no-store'" /tmp/app.js
-          grep -q 'const pageSize=10' /tmp/app.js
+          grep -q 'const pageSize=8' /tmp/app.js
           gzip -n -c /tmp/app.js | base64 -w0 > static/app.js.gz.b64
 
           if ! grep -q '.item-tools input,.item-tools select{min-height:44px}' static/styles.css; then
@@ -48,5 +48,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add static/app.js.gz.b64 static/styles.css
           git diff --cached --check
-          git commit -m 'C-04: reduce item page to ten rows'
+          git commit -m 'C-04: reduce item page to eight rows'
           git push origin HEAD:${{ github.head_ref }}

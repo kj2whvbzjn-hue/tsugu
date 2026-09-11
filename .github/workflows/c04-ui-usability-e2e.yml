@@ -55,8 +55,24 @@ jobs:
           node --check tests/.c04-ui-usability.e2e.cjs
           test "$(sha256sum tests/.c04-ui-usability.e2e.cjs | awk '{print $1}')" = "998a299116a253f358aa2ba91a6bff9b310ede7fe2fe49de754aa1bea4008e45"
           node -e "const p=require('./static/c04-ui-usability-plan.json'); if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==1)process.exit(1)"
-          echo '--- C-04 delete/reload diagnostic source ---'
-          nl -ba tests/.c04-ui-usability.e2e.cjs | sed -n '180,205p'
+
+          # Synchronize deletion verification with the UI's completed reload render.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/.c04-ui-usability.e2e.cjs')
+          s=p.read_text()
+          old1="for(let i=0;i<30&&(await listProjects()).length!==1;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,1);await page.getByText(/C-04 UI\\/使用性テスト計画 v1（取込）/).first().waitFor({state:'visible',timeout:15000});assert.equal(await page.getByText(/C-04 UI負荷・使用性テスト 196項目（取込）/).count(),0);"
+          new1="await page.getByText(/GitHubから1件を読み込みました/).waitFor({state:'visible',timeout:30000});for(let i=0;i<60&&(await listProjects()).length!==1;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,1);await page.getByText(/C-04 UI\\/使用性テスト計画 v1（取込）/).first().waitFor({state:'visible',timeout:15000});await page.getByText(/C-04 UI負荷・使用性テスト 196項目（取込）/).first().waitFor({state:'hidden',timeout:15000});assert.equal(await page.getByText(/C-04 UI負荷・使用性テスト 196項目（取込）/).count(),0);"
+          old2="for(let i=0;i<30&&(await listProjects()).length!==0;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,0);await page.getByText('まだ案件がありません。',{exact:true}).waitFor({state:'visible',timeout:15000});evidence.cleanup={remainingProjects:0};markScenario('UI-09','PASS');"
+          new2="await page.getByText(/GitHubから0件を読み込みました/).waitFor({state:'visible',timeout:30000});for(let i=0;i<60&&(await listProjects()).length!==0;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,0);await page.getByText(/C-04 UI\\/使用性テスト計画 v1（取込）/).first().waitFor({state:'hidden',timeout:15000});await page.getByText('まだ案件がありません。',{exact:true}).waitFor({state:'visible',timeout:15000});evidence.cleanup={remainingProjects:0};markScenario('UI-09','PASS');"
+          if old1 not in s or old2 not in s:
+              raise SystemExit('delete/reload synchronization anchors not found')
+          s=s.replace(old1,new1).replace(old2,new2)
+          p.write_text(s)
+          PY
+          node --check tests/.c04-ui-usability.e2e.cjs
+          echo '--- C-04 delete/reload synchronized source ---'
+          nl -ba tests/.c04-ui-usability.e2e.cjs | sed -n '191,201p'
 
       - name: Build candidate Pages site
         if: ${{ github.event_name == 'pull_request' }}

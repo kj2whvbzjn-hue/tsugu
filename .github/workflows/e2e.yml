@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
+      - name: Verify Core Guard contracts
+        run: node --test tests/core-guard.test.cjs
       - name: Install Playwright
         run: |
           npm init -y >/dev/null 2>&1
@@ -96,6 +98,7 @@ jobs:
                 if (url === `https://api.github.com/repos/${owner}/${repo}` && r.ok) {
                   const data = await r.clone().json();
                   data.private = true;
+                  data.permissions = { admin: true, maintain: true, push: true, pull: true };
                   return new Response(JSON.stringify(data), { status: 200, headers: { 'content-type': 'application/json' } });
                 }
                 return r;
@@ -137,7 +140,14 @@ jobs:
               assert.equal(record.project.name, 'Actions E2E');
               assert.equal(record.revision, 1);
               assert.ok(record.project.id);
-              console.log(`READBACK OK ${created.path} revision=${record.revision}`);
+              assert.equal(record.project.core.securityVersion, 1);
+              assert.equal(record.project.core.actors[0].login, owner);
+              assert.equal(record.project.core.permissions[0].role, 'PROJECT_ADMIN');
+              assert.equal(record.project.core.auditEvents.length, 1);
+              assert.equal(record.project.core.auditEvents[0].actorLogin, owner);
+              assert.equal(record.project.core.auditEvents[0].recordRevision, 1);
+              assert.match(record.project.core.auditEvents[0].payloadHash, /^sha256:[a-f0-9]{64}$/);
+              console.log(`READBACK OK ${created.path} revision=${record.revision} audit=${record.project.core.auditEvents.length}`);
               await page.screenshot({ path: 'tsugu-e2e-success.png', fullPage: true });
             } finally {
               await browser.close();

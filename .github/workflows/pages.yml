@@ -33,8 +33,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _site
-          cp static/index.html static/styles.css static/favicon.svg _site/
+          cp static/index.html static/styles.css static/favicon.svg static/core-guard.js _site/
           base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
+          node --check _site/core-guard.js
           node --check _site/app.js
       - name: Upload TSUGU artifact
         uses: actions/upload-pages-artifact@v4

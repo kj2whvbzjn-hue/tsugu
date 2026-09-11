@@ -1,0 +1,96 @@
+name: TSUGU C-04 UI Usability v2 E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'static/c04-ui-usability-plan-v2.json'
+      - 'tests/c04-ui-usability-v2.e2e.cjs'
+      - '.github/workflows/c04-ui-usability-v2-e2e.yml'
+      - 'static/app.js.gz.b64'
+      - 'static/styles.css'
+      - 'static/index.html'
+      - 'change-records/C-04.json'
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-c04-v2-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  ui-usability-v2:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify frozen v2 plan and product bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const p=require('./static/c04-ui-usability-plan-v2.json');if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==2)process.exit(1)"
+          node --check tests/c04-ui-usability-v2.e2e.cjs
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-app.js
+          node --check /tmp/c04-app.js
+          grep -q "cache:'no-store'" /tmp/c04-app.js
+          grep -q 'const pageSize=20' /tmp/c04-app.js
+          grep -q 'id="itemSearch"' /tmp/c04-app.js
+          grep -q 'id="itemKindFilter"' /tmp/c04-app.js
+          grep -q 'id="itemStatusFilter"' /tmp/c04-app.js
+          grep -q 'workspace-sticky' /tmp/c04-app.js
+
+      - name: Build candidate Pages site
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -a static/. _site/
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
+          rm -f _site/app.js.gz.b64
+          node --check _site/app.js
+
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Execute frozen v2 UI usability acceptance
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          C04_TARGET_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4173/' || 'https://kj2whvbzjn-hue.github.io/tsugu/' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python3 -m http.server 4173 --directory _site >/tmp/c04-v2-http.log 2>&1 &
+            SERVER_PID=$!
+            trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+              sleep 1
+            done
+          fi
+          node tests/c04-ui-usability-v2.e2e.cjs
+
+      - name: Upload C-04 v2 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c04-ui-usability-v2-evidence-${{ github.run_id }}
+          path: |
+            c04-ui-usability-v2-evidence.json
+            c04-v2-mobile.png
+            c04-v2-desktop.png
+          if-no-files-found: ignore

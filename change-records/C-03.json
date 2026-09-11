@@ -45,23 +45,39 @@
     "Deploy TSUGU run 34646315362 for resultCommit 916754791a3545a7bed34109ab516c06059e9c8a: PASS",
     "post-deploy TSUGU Sync Recovery E2E run 34646346358: PASS for 10 recovery contracts, published core-sync-recovery.js exact source comparison, engineering load evidence, and evidence upload",
     "post-deploy engineering probe: integrationRecords=250, missedCommits=100, recalculationItems=200, syncMs=685.011, recalculationMs=99, assessment=AWAITING_PROFILE_APPROVAL",
-    "private kj2whvbzjn-hue/tsugu-data operational scale remains unavailable to current GitHub connection (404); the engineering profile is approved=false and has no acceptance thresholds"
+    "user instruction on 2026-09-12 approved the uploaded current implementation-plan corpus as the C-03 load-test scale",
+    "registered load profile commit cd4d850099c0e9d41c62e12f0429e365c419218e: integrationRecords=217, missedCommits=90, recalculationItems=217; source corpus has 90 Tasks, 348 dependency edges, 34 specifications, 37 Work Boxes, 34 Checks, and 217 unique IDs",
+    "registered corpus hashes: development-project_DEV-GA-CURRENT-IMPLEMENTATION-001.json sha256=a781c1ddd3cce593c24ce05901e1f992d576796d3985235a834257776c4174b5; 00_新規実装計画_総合.md sha256=200378fa2b001459c0ecce69284585235fdecb14e0a906d5b7cf72d2e791ee45",
+    "load-profile-trigger wiring commit b0102a46654a4f48ff881625c6bcfbd85f8de69e; Deploy TSUGU run 34647810929: PASS",
+    "user-corpus post-deploy TSUGU Sync Recovery E2E run 34647840825: PASS for recovery contracts, load probe, published source comparison, evidence summary, and artifact upload",
+    "user-corpus load result: integrationRecords=217 + missedCommits=90 -> finalIntegrationRecords=307; healthItems=217; syncMs=325.107; recalculationMs=99.486; resultHash=sha256:53ab3fa3df7b7af89a0f32ce2d8e3438c65c4271c941ea7471a931d5ad8a3265",
+    "load scale is human-approved, but maxSyncMs and maxRecalculationMs acceptance thresholds were not supplied; performance PASS/FAIL therefore remains intentionally undecided"
   ],
-  "status": "IMPLEMENTATION_VERIFIED_AWAITING_LOAD_PROFILE_APPROVAL",
+  "status": "IMPLEMENTATION_AND_LOAD_SCALE_VERIFIED_AWAITING_THRESHOLDS",
   "completedAt": null,
-  "nextTask": "C-03-LOAD-PROFILE-APPROVAL",
+  "nextTask": "C-03-LOAD-THRESHOLD-APPROVAL",
+  "loadScaleApproval": {
+    "approved": true,
+    "date": "2026-09-12",
+    "instruction": "これを登録して負荷試験として",
+    "profileId": "c03-user-corpus-load-2026-09-12",
+    "integrationRecords": 217,
+    "missedCommits": 90,
+    "recalculationItems": 217,
+    "sourceHashes": {
+      "development-project_DEV-GA-CURRENT-IMPLEMENTATION-001.json": "a781c1ddd3cce593c24ce05901e1f992d576796d3985235a834257776c4174b5",
+      "00_新規実装計画_総合.md": "200378fa2b001459c0ecce69284585235fdecb14e0a906d5b7cf72d2e791ee45"
+    }
+  },
   "blockingDecision": {
-    "type": "LOAD_PROFILE_APPROVAL",
+    "type": "LOAD_THRESHOLD_APPROVAL",
     "required": true,
     "requiredFields": [
-      "integrationRecords",
-      "missedCommits",
-      "recalculationItems",
       "maxSyncMs",
       "maxRecalculationMs",
       "approvalRef"
     ],
-    "reason": "Plan v2.3 requires C-03 performance acceptance at a G0/operations agreed data scale. Current private operational scale is not visible and the committed profile is intentionally unapproved, so C-03 cannot be marked PASS and D-01 must not start."
+    "reason": "The user-provided corpus now fixes and approves the C-03 workload scale, and that scale has been measured successfully. Plan v2.3 still requires performance acceptance against agreed thresholds; no maxSyncMs/maxRecalculationMs values have been supplied, so C-03 cannot yet be marked PASS and D-01 must not start."
   },
   "rollbackPlan": "Revert the C-03 source commit. C-03 Recovery state and load evidence are auxiliary; A-05 Sync aggregate and B/C business state remain authoritative and are not migrated."
 }

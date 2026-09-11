@@ -42,11 +42,12 @@ jobs:
           base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-app.js
           node --check /tmp/c04-app.js
           grep -q "cache:'no-store'" /tmp/c04-app.js
-          grep -q 'const pageSize=20' /tmp/c04-app.js
+          grep -q 'const pageSize=10' /tmp/c04-app.js
           grep -q 'id="itemSearch"' /tmp/c04-app.js
           grep -q 'id="itemKindFilter"' /tmp/c04-app.js
           grep -q 'id="itemStatusFilter"' /tmp/c04-app.js
           grep -q 'workspace-sticky' /tmp/c04-app.js
+          grep -q '.item-tools input,.item-tools select{min-height:44px}' static/styles.css
 
       - name: Build candidate Pages site
         if: ${{ github.event_name == 'pull_request' }}

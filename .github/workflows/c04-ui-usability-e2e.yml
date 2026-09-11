@@ -72,24 +72,25 @@ jobs:
           p.write_text(s)
           PY
 
-          # Synchronize deletion verification with the rendered project list, not hidden detail DOM.
+          # Verify deletion by visible project-list state plus GitHub API counts.
+          # Hidden stale DOM nodes are not counted as visible projects.
           python3 - <<'PY'
           from pathlib import Path
           p=Path('tests/.c04-ui-usability.e2e.cjs')
           s=p.read_text()
           old1="for(let i=0;i<30&&(await listProjects()).length!==1;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,1);await page.getByText(/C-04 UI\\/使用性テスト計画 v1（取込）/).first().waitFor({state:'visible',timeout:15000});assert.equal(await page.getByText(/C-04 UI負荷・使用性テスト 196項目（取込）/).count(),0);"
-          new1="const workloadListCard=page.locator('.project-list button').filter({hasText:/C-04 UI負荷・使用性テスト 196項目（取込）/});const planListCard=page.locator('.project-list button').filter({hasText:/C-04 UI\\/使用性テスト計画 v1（取込）/});await workloadListCard.first().waitFor({state:'hidden',timeout:30000});for(let i=0;i<60&&(await listProjects()).length!==1;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,1);await planListCard.first().waitFor({state:'visible',timeout:15000});assert.equal(await workloadListCard.count(),0);assert.equal(await planListCard.count(),1);"
+          new1="const workloadListCard=page.locator('.project-list button').filter({hasText:/C-04 UI負荷・使用性テスト 196項目（取込）/});const planListCard=page.locator('.project-list button').filter({hasText:/C-04 UI\\/使用性テスト計画 v1（取込）/});await workloadListCard.first().waitFor({state:'hidden',timeout:30000});for(let i=0;i<60&&(await listProjects()).length!==1;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,1);await planListCard.first().waitFor({state:'visible',timeout:15000});assert.equal(await workloadListCard.first().isVisible(),false);assert.equal(await planListCard.first().isVisible(),true);"
           old2="for(let i=0;i<30&&(await listProjects()).length!==0;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,0);await page.getByText('まだ案件がありません。',{exact:true}).waitFor({state:'visible',timeout:15000});evidence.cleanup={remainingProjects:0};markScenario('UI-09','PASS');"
-          new2="await planListCard.first().waitFor({state:'hidden',timeout:30000});await page.getByText('まだ案件がありません。',{exact:true}).waitFor({state:'visible',timeout:30000});for(let i=0;i<60&&(await listProjects()).length!==0;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,0);assert.equal(await planListCard.count(),0);evidence.cleanup={remainingProjects:0};markScenario('UI-09','PASS');"
+          new2="await planListCard.first().waitFor({state:'hidden',timeout:30000});await page.getByText('まだ案件がありません。',{exact:true}).waitFor({state:'visible',timeout:30000});for(let i=0;i<60&&(await listProjects()).length!==0;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,0);assert.equal(await planListCard.first().isVisible(),false);evidence.cleanup={remainingProjects:0};markScenario('UI-09','PASS');"
           old3="const planCard=page.getByText(/C-04 UI\\/使用性テスト計画 v1（取込）/).first();"
           new3="const planCard=planListCard.first();"
           if old1 not in s or old2 not in s or old3 not in s:
-              raise SystemExit('delete/reload semantic anchors not found')
+              raise SystemExit('delete/reload visible-state anchors not found')
           s=s.replace(old1,new1).replace(old2,new2).replace(old3,new3)
           p.write_text(s)
           PY
           node --check tests/.c04-ui-usability.e2e.cjs
-          echo '--- C-04 delete/reload project-list source ---'
+          echo '--- C-04 delete/reload visible-state source ---'
           nl -ba tests/.c04-ui-usability.e2e.cjs | sed -n '191,202p'
 
       - name: Build candidate Pages site

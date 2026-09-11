@@ -1,0 +1,95 @@
+{
+  "type": "TSUGUUIUsabilityAcceptancePlan",
+  "taskId": "C-04",
+  "version": 1,
+  "title": "UI/使用性テストと操作効率検証",
+  "status": "FROZEN_BEFORE_EXECUTION",
+  "basis": "User-requested additional stage after C-03 and before D-01",
+  "target": {
+    "publishedUrl": "https://kj2whvbzjn-hue.github.io/tsugu/",
+    "storage": "GitHub Contents API data/projects/*.json",
+    "execution": "Playwright Chromium against published Pages with isolated temporary Git branch"
+  },
+  "viewports": [
+    {"id":"mobile","width":390,"height":844},
+    {"id":"desktop","width":1440,"height":1000}
+  ],
+  "principles": [
+    "Acceptance criteria are fixed before execution and are not relaxed after observing results.",
+    "The browser must exercise the same published TSUGU UI used by humans.",
+    "Test projects are isolated on a temporary Git branch and deleted with the branch after evidence capture.",
+    "Approval/completion state must not be inferred or modified by the test.",
+    "A functionally successful flow can still FAIL usability when it requires redundant navigation or vertical travel."
+  ],
+  "scenarios": [
+    {
+      "id":"UI-01",
+      "name":"Initial connection and empty workspace comprehension",
+      "actions":["open published TSUGU","enter owner/repository/branch/token","connect"],
+      "pass":["connection succeeds","empty project count is understandable","new/import/reload/disconnect controls are visible","no horizontal overflow"]
+    },
+    {
+      "id":"UI-02",
+      "name":"Register this frozen C-04 plan through the real import/save UI",
+      "actions":["JSONから新規取込","select generated schemaVersion 1 C-04 plan project","GitHubへ保存","read back saved JSON from GitHub"],
+      "pass":["new project ID is allocated","revision is 1","plan identity C-04/version 1 is preserved in the saved project","save state is visibly distinguishable"]
+    },
+    {
+      "id":"UI-03",
+      "name":"Register representative 196-item workload through the real UI",
+      "actions":["JSONから新規取込","select 196-item native project","GitHubへ保存","read back"],
+      "pass":["196 items persist","35 構成 / 127 作業 / 34 検証","90 task metadata rows persist","no approval is added"]
+    },
+    {
+      "id":"UI-04",
+      "name":"Mobile layout and primary control visibility",
+      "pass":["document scrollWidth <= viewport width + 1px","primary controls are not clipped","primary touch targets are at least 44x44 CSS px","fixed overlays do not cover the center point of active controls"]
+    },
+    {
+      "id":"UI-05",
+      "name":"Desktop layout and primary control visibility",
+      "pass":["document scrollWidth <= viewport width + 1px","primary controls are not clipped","fixed overlays do not cover the center point of active controls"]
+    },
+    {
+      "id":"UI-06",
+      "name":"Vertical traversal efficiency",
+      "actions":["from top controls open 項目","inspect from first visible item toward the last item","return to primary controls","inspect lower overview/approval content"],
+      "pass":["per-task vertical direction reversals <= 1","mobile total direction reversals <= 3","desktop total direction reversals <= 2","down-up-down or up-down-up oscillation for one objective = 0","no return by >= one viewport followed by re-traversal toward the same target","scroll targets are not hidden under fixed overlays"]
+    },
+    {
+      "id":"UI-07",
+      "name":"Tab and in-page interaction efficiency",
+      "pass":["概要/項目/AI引き継ぎ/高度なJSON switch without document navigation","same-purpose duplicate click = 0","unintended full page navigation = 0"]
+    },
+    {
+      "id":"UI-08",
+      "name":"Save/reload state comprehension",
+      "actions":["reload browser","reconnect","select saved workload","GitHubから再読込"],
+      "pass":["saved workload is rediscovered","revision/sync status remains understandable","no duplicate record is created by reload"]
+    },
+    {
+      "id":"UI-09",
+      "name":"Destructive action clarity and cleanup",
+      "actions":["delete workload test project","reload from GitHub","delete C-04 plan test project","reload from GitHub"],
+      "pass":["destructive confirmation is shown","only selected test project is removed","list count decreases exactly by one per delete","deleted project does not reappear after reload"]
+    },
+    {
+      "id":"UI-10",
+      "name":"Runtime quality",
+      "pass":["unhandled page errors = 0","unexpected API 4xx/5xx = 0","unexpected console error messages = 0"]
+    }
+  ],
+  "navigationBudgets": {
+    "documentNavigationsExcludingInitialAndOneExplicitReload": 0,
+    "samePurposeDuplicateClicks": 0,
+    "mobileTotalVerticalDirectionReversals": 3,
+    "desktopTotalVerticalDirectionReversals": 2,
+    "perTaskVerticalDirectionReversals": 1,
+    "verticalOscillationTriples": 0,
+    "redundantReturnAndRetraverseByViewport": 0
+  },
+  "evidence": {
+    "required": ["action log","scroll trace","navigation trace","console/page-error/API error log","mobile screenshot","desktop screenshot","saved plan readback","saved workload readback","cleanup verification"],
+    "resultRule": "All scenarios must PASS. Any budget breach is FAIL even if the functional operation succeeds."
+  }
+}

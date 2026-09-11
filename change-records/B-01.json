@@ -1,0 +1,53 @@
+{
+  "taskId": "B-01",
+  "baseline": {
+    "gitCommit": "e1cf88f971af7f572f6de33ea332e325eb50e8a7",
+    "a05ResultCommit": "05a8ed686696e68096233749b5873ba7f8e42645",
+    "projectRevision": null
+  },
+  "scope": [
+    "SchemaDefinition",
+    "BoxDefinition",
+    "BoxInstance",
+    "ChildConstraint",
+    "ArchitectureBindingV2",
+    "A-to-B migration",
+    "B system definition seed",
+    "BoxChangeSet and GitHub CAS Apply"
+  ],
+  "acceptance": [
+    "Published SchemaDefinition and BoxDefinition contents are fixed by SHA-256 content hashes",
+    "Box version changes create an explicit new version and never rewrite the old Published version",
+    "Existing BoxInstance references remain valid after definition deprecation or retirement",
+    "New BoxInstance creation rejects Deprecated or Retired definitions",
+    "BoxInstance config rejects Schema required/type/enum/unknown-field mismatches",
+    "ChildConstraint rejects disallowed child Schema and enforces all min/max constraints",
+    "ArchitectureBindingV2 targets exactly one of NODE or BOX_INSTANCE",
+    "Box-owned ArchitectureNode is derived from BoxInstance and cannot be separately contradictory in a Box Binding",
+    "Stage A Node Binding stable IDs, revisions and effective periods survive A-to-B migration",
+    "B system Seed is idempotent and detects stable-ID/version content collisions",
+    "Persistent B changes require BoxChangeSet with deterministic stable IDs and definition timestamps",
+    "BoxChangeSet fixes base revision and Git blob SHA, revalidates candidates, writes Audit/Outbox atomically, supports idempotency and rejects stale CAS",
+    "Existing Stage A UI storage path is not modified"
+  ],
+  "plannedFiles": [
+    "static/core-box.js",
+    "static/core-box-changeset.js",
+    "tests/core-box.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/box-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_B01.md",
+    "change-records/B-01.json"
+  ],
+  "verificationEvidence": [
+    "node --check core-box.js/core-box-changeset.js: PASS locally",
+    "B-01 local contract suite: 13/13 PASS against the Stage A API contract",
+    "Deploy TSUGU: pending merge",
+    "TSUGU Box E2E: pending merge",
+    "Stage A/A-04/A-05 regression workflows: pending merge"
+  ],
+  "status": "IN_PROGRESS",
+  "nextTask": "B-02",
+  "rollbackPlan": "Revert the B-01 result commit. B-01 is additive: it does not rewrite Stage A ProjectArchitecture JSON or the current app.js save flow. Do not restore retired server runtimes."
+}

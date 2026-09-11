@@ -1,0 +1,180 @@
+name: TSUGU Box E2E
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-box-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Verify B-01 contracts
+        run: node --test tests/core-box.test.cjs
+      - name: Verify published modules and GitHub Box ChangeSet flow
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          E2E_RUN_ID: ${{ github.run_id }}
+          E2E_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-box.js?run=${E2E_RUN_ID}" -o /tmp/published-core-box.js
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-box-changeset.js?run=${E2E_RUN_ID}" -o /tmp/published-core-box-changeset.js
+          cmp static/core-box.js /tmp/published-core-box.js
+          cmp static/core-box-changeset.js /tmp/published-core-box-changeset.js
+          node <<'NODE'
+          (async () => {
+            const assert = require('node:assert/strict');
+            const fs = require('node:fs');
+            const Architecture = require('./static/core-architecture.js');
+            const Box = require('./static/core-box.js');
+            const BoxChangeSet = require('./static/core-box-changeset.js');
+            const owner = 'kj2whvbzjn-hue';
+            const repo = 'tsugu';
+            const repositoryId = 1363396531;
+            const branch = `b01-e2e-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}`;
+            const path = `data/e2e/b01-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}.json`;
+            const token = process.env.GH_TOKEN_E2E;
+            const sourceSha = process.env.SOURCE_SHA;
+            const headers = {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${token}`,
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'tsugu-b01-e2e'
+            };
+            async function api(pathname, options = {}, allow404 = false) {
+              const r = await fetch(`https://api.github.com${pathname}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
+              const text = await r.text();
+              if (allow404 && r.status === 404) return null;
+              if (!r.ok) throw new Error(`GitHub ${r.status}: ${text}`);
+              return text ? JSON.parse(text) : null;
+            }
+            async function readAggregate() {
+              const file = await api(`/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`);
+              const json = Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf8');
+              return { file, aggregate: BoxChangeSet.validateAggregate(JSON.parse(json)) };
+            }
+
+            await api(`/repos/${owner}/${repo}/git/refs`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: sourceSha })
+            });
+            console.log(`TEMP BRANCH CREATED ${branch}`);
+            try {
+              let architecture = Architecture.createProjectArchitecture({
+                projectId: 'project:b01:e2e', name: 'B-01 E2E',
+                repositoryScopes: [{ repositoryId, fullName: `${owner}/${repo}` }]
+              });
+              architecture = Architecture.addArchitectureNode(architecture, { id: 'node:root', name: 'Root' });
+              architecture = Architecture.addArchitectureNode(architecture, { id: 'node:child', name: 'Child', parentNodeId: 'node:root' });
+              architecture = Architecture.addPathEntry(architecture, { id: 'path:file', repositoryId, kind: 'FILE', name: 'app.js' });
+              architecture = Architecture.addBinding(architecture, { id: 'binding:stage-a', pathEntryId: 'path:file', architectureNodeId: 'node:root', relation: 'IMPLEMENTS' });
+              const registry = Box.migrateFromStageA(architecture);
+              assert.equal(registry.bindings[0].id, 'binding:stage-a');
+              assert.equal(registry.bindings[0].targetType, 'NODE');
+              const initial = BoxChangeSet.createAggregate(registry);
+              const created = await api(`/repos/${owner}/${repo}/contents/${path}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'Initialize B-01 E2E aggregate', content: Buffer.from(BoxChangeSet.stableStringify(initial)).toString('base64'), branch })
+              });
+
+              const first = BoxChangeSet.createChangeSet({
+                id: 'box-changeset:b01:v1', projectId: initial.projectId, idempotencyKey: 'idem:b01:v1',
+                baseRevision: initial.revision, baseBlobSha: created.content.sha, createdBy: owner,
+                operations: [
+                  { type: 'SEED_SYSTEM_DEFINITIONS' },
+                  { type: 'CREATE_SCHEMA_DRAFT', id: 'schema:service', version: 1, name: 'Service Schema', fields: [
+                    { name: 'name', type: 'STRING', required: true }, { name: 'replicas', type: 'NUMBER', required: true }
+                  ] },
+                  { type: 'PUBLISH_SCHEMA', schemaDefinitionId: 'schema:service', schemaDefinitionVersion: 1, at: '2026-09-11T00:00:00Z' },
+                  { type: 'CREATE_BOX_DRAFT', id: 'box:service', version: 1, name: 'Service Box', schemaDefinitionId: 'schema:service', schemaDefinitionVersion: 1, metadata: { generation: 1 } },
+                  { type: 'PUBLISH_BOX', boxDefinitionId: 'box:service', boxDefinitionVersion: 1, at: '2026-09-11T00:00:01Z' },
+                  { type: 'CREATE_BOX_INSTANCE', id: 'instance:service:v1', boxDefinitionId: 'box:service', boxDefinitionVersion: 1, architectureNodeId: 'node:root', config: { name: 'api', replicas: 1 } },
+                  { type: 'ADD_BINDING_V2', id: 'binding:service', pathEntryId: 'path:file', targetType: 'BOX_INSTANCE', boxInstanceId: 'instance:service:v1', relation: 'IMPLEMENTS' }
+                ]
+              });
+              const v1 = BoxChangeSet.validateChangeSet(initial, created.content.sha, first, { now: '2026-09-11T00:01:00Z', actor: owner });
+              const applied1 = await BoxChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: first, validationRecord: v1.validationRecord, actor: owner, now: '2026-09-11T00:02:00Z' });
+              assert.equal(applied1.status, 'APPLIED');
+              let current = await readAggregate();
+              const v1Def = current.aggregate.registry.boxDefinitions.find(x => x.id === 'box:service' && x.version === 1);
+              const v1Hash = v1Def.contentHash;
+              assert.match(v1Hash, /^sha256:[a-f0-9]{64}$/);
+              assert.equal(Box.bindingDesignNodeId(current.aggregate.registry, 'binding:service'), 'node:root');
+
+              const second = BoxChangeSet.createChangeSet({
+                id: 'box-changeset:b01:v2', projectId: current.aggregate.projectId, idempotencyKey: 'idem:b01:v2',
+                baseRevision: current.aggregate.revision, baseBlobSha: current.file.sha, createdBy: owner,
+                operations: [
+                  { type: 'SEED_SYSTEM_DEFINITIONS' },
+                  { type: 'CREATE_NEXT_BOX_VERSION', boxDefinitionId: 'box:service', fromVersion: 1, metadata: { generation: 2 } },
+                  { type: 'PUBLISH_BOX', boxDefinitionId: 'box:service', boxDefinitionVersion: 2, at: '2026-09-11T00:03:00Z' }
+                ]
+              });
+              const v2 = BoxChangeSet.validateChangeSet(current.aggregate, current.file.sha, second, { now: '2026-09-11T00:03:10Z', actor: owner });
+              const applied2 = await BoxChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: second, validationRecord: v2.validationRecord, actor: owner, now: '2026-09-11T00:04:00Z' });
+              assert.equal(applied2.status, 'APPLIED');
+              current = await readAggregate();
+              assert.equal(current.aggregate.registry.seedVersion, 'B01-1');
+              assert.equal(current.aggregate.registry.boxDefinitions.filter(x => x.id === 'box:service').length, 2);
+              assert.equal(current.aggregate.registry.boxDefinitions.find(x => x.id === 'box:service' && x.version === 1).contentHash, v1Hash);
+              assert.equal(current.aggregate.registry.boxInstances.find(x => x.id === 'instance:service:v1').boxDefinitionVersion, 1);
+              assert.equal(current.aggregate.registry.bindings.find(x => x.id === 'binding:stage-a').targetType, 'NODE');
+              assert.equal(current.aggregate.registry.bindings.find(x => x.id === 'binding:service').targetType, 'BOX_INSTANCE');
+
+              const replay = await BoxChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: first, validationRecord: v1.validationRecord, actor: owner, now: '2026-09-11T00:05:00Z' });
+              assert.equal(replay.status, 'IDEMPOTENT_REPLAY');
+
+              const badType = BoxChangeSet.createChangeSet({
+                id: 'box-changeset:b01:bad-type', projectId: current.aggregate.projectId, idempotencyKey: 'idem:b01:bad-type',
+                baseRevision: current.aggregate.revision, baseBlobSha: current.file.sha, createdBy: owner,
+                operations: [{ type: 'CREATE_BOX_INSTANCE', id: 'instance:bad-type', boxDefinitionId: 'box:service', boxDefinitionVersion: 2, architectureNodeId: 'node:child', config: { name: 'bad', replicas: 'two' } }]
+              });
+              assert.throws(() => BoxChangeSet.validateChangeSet(current.aggregate, current.file.sha, badType, { now: '2026-09-11T00:06:00Z' }), e => e.code === 'SCHEMA_TYPE_MISMATCH');
+
+              const badBinding = BoxChangeSet.createChangeSet({
+                id: 'box-changeset:b01:bad-binding', projectId: current.aggregate.projectId, idempotencyKey: 'idem:b01:bad-binding',
+                baseRevision: current.aggregate.revision, baseBlobSha: current.file.sha, createdBy: owner,
+                operations: [{ type: 'ADD_BINDING_V2', id: 'binding:bad', pathEntryId: 'path:file', targetType: 'BOX_INSTANCE', boxInstanceId: 'instance:service:v1', architectureNodeId: 'node:root', relation: 'IMPLEMENTS' }]
+              });
+              assert.throws(() => BoxChangeSet.validateChangeSet(current.aggregate, current.file.sha, badBinding, { now: '2026-09-11T00:06:10Z' }), e => e.code === 'BINDING_TARGET_EXCLUSIVITY');
+
+              const observation = {
+                sourceSha, appliedV1CommitSha: applied1.commitSha, appliedV2CommitSha: applied2.commitSha,
+                finalRevision: current.aggregate.revision, migrationVersion: current.aggregate.registry.migrationVersion,
+                seedVersion: current.aggregate.registry.seedVersion, systemSchemas: current.aggregate.registry.schemaDefinitions.filter(x => x.id.startsWith('system:')).length,
+                serviceVersions: current.aggregate.registry.boxDefinitions.filter(x => x.id === 'box:service').map(x => x.version),
+                oldInstanceVersion: current.aggregate.registry.boxInstances.find(x => x.id === 'instance:service:v1').boxDefinitionVersion,
+                nodeBindingPreserved: current.aggregate.registry.bindings.some(x => x.id === 'binding:stage-a' && x.targetType === 'NODE'),
+                boxBindingPresent: current.aggregate.registry.bindings.some(x => x.id === 'binding:service' && x.targetType === 'BOX_INSTANCE'),
+                seedRerunIdempotent: true, publishedV1HashPreserved: true, explicitV2: true, typeMismatchRejected: true, exclusiveBindingRejected: true, idempotentReplay: true
+              };
+              fs.writeFileSync('b01-observation.json', JSON.stringify(observation, null, 2));
+              console.log(JSON.stringify(observation));
+            } finally {
+              await api(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'DELETE' });
+              console.log(`TEMP BRANCH DELETED ${branch}`);
+            }
+          })().catch(e => { console.error(e.stack || e); process.exit(1); });
+          NODE
+      - name: Upload B-01 observation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsugu-b01-observation
+          path: b01-observation.json
+          if-no-files-found: ignore

@@ -1,0 +1,80 @@
+name: TSUGU Architecture Health E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'static/core-architecture-health.js'
+      - 'tests/core-architecture-health.test.cjs'
+      - 'static/index.html'
+      - '.github/workflows/pages.yml'
+      - '.github/workflows/architecture-health-e2e.yml'
+      - 'docs/TSUGU_CORE_VNEXT_C02.md'
+      - 'change-records/C-02.json'
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source result
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
+      - name: Verify C-02 differential Health contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check static/core-architecture-health.js
+          node --check tests/core-architecture-health.test.cjs
+          node --test tests/core-architecture-health.test.cjs
+      - name: Verify published Architecture Health module
+        if: github.event_name == 'workflow_run'
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$SOURCE_SHA"
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/core-architecture-health.js?sha=${SOURCE_SHA}" -o /tmp/core-architecture-health.js
+          cmp static/core-architecture-health.js /tmp/core-architecture-health.js
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/index.html?sha=${SOURCE_SHA}" -o /tmp/index.html
+          grep -F 'core-architecture-health.js?v=core-vnext-c02' /tmp/index.html
+      - name: Verify cache delete and deterministic rebuild evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-name-pattern='deleting cache and rebuilding' tests/core-architecture-health.test.cjs
+          node --test --test-name-pattern='cache uses exact evaluation generation' tests/core-architecture-health.test.cjs
+      - name: Write C-02 evidence summary
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const evidence={
+            type:'C02ArchitectureHealthE2EEvidence',
+            sourceSha:process.env.SOURCE_SHA,
+            eventName:process.env.GITHUB_EVENT_NAME,
+            runId:process.env.GITHUB_RUN_ID,
+            contracts:'PASS',
+            publishedVerification:process.env.GITHUB_EVENT_NAME==='workflow_run'?'PASS':'POST_DEPLOY_ONLY',
+            cacheRebuild:'PASS'
+          };
+          fs.writeFileSync('evidence/c02-architecture-health.json',JSON.stringify(evidence,null,2)+'\n');
+          NODE
+      - name: Upload C-02 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: c02-architecture-health-${{ github.run_id }}
+          path: evidence/c02-architecture-health.json

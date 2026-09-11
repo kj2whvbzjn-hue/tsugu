@@ -43,3 +43,5 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+# 2026-09-11: redeploy after separating public UI and private project data.

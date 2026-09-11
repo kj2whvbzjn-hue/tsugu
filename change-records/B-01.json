@@ -5,6 +5,9 @@
     "a05ResultCommit": "05a8ed686696e68096233749b5873ba7f8e42645",
     "projectRevision": null
   },
+  "initialResultCommit": "ef0aad659b1a047dbcd28b3f50bd565e7891250b",
+  "resultCommit": "92b0e488941b1a46e9a1b7387ee414695638c92a",
+  "resultTree": "7783aa320c1bebffbd1b9b20ae2c465735a2b580",
   "scope": [
     "SchemaDefinition",
     "BoxDefinition",
@@ -28,12 +31,14 @@
     "B system Seed is idempotent and detects stable-ID/version content collisions",
     "Persistent B changes require BoxChangeSet with deterministic stable IDs and definition timestamps",
     "BoxChangeSet fixes base revision and Git blob SHA, revalidates candidates, writes Audit/Outbox atomically, supports idempotency and rejects stale CAS",
+    "Successful GitHub Contents API Apply readback is pinned to the exact write commit SHA and verifies the returned blob SHA",
     "Existing Stage A UI storage path is not modified"
   ],
   "plannedFiles": [
     "static/core-box.js",
     "static/core-box-changeset.js",
     "tests/core-box.test.cjs",
+    "tests/core-box-readback.test.cjs",
     "static/index.html",
     ".github/workflows/pages.yml",
     ".github/workflows/box-e2e.yml",
@@ -41,13 +46,19 @@
     "change-records/B-01.json"
   ],
   "verificationEvidence": [
-    "node --check core-box.js/core-box-changeset.js: PASS locally",
-    "B-01 local contract suite: 13/13 PASS against the Stage A API contract",
-    "Deploy TSUGU: pending merge",
-    "TSUGU Box E2E: pending merge",
-    "Stage A/A-04/A-05 regression workflows: pending merge"
+    "B-01 initial post-deploy run 34561338489 exposed GitHub branch-ref propagation lag after a successful Contents API PUT; the failure was APPLY_READBACK_MISMATCH and was resolved by commit-pinned readback in 92b0e488941b1a46e9a1b7387ee414695638c92a",
+    "B-01 contract suite plus branch-lag regression test: PASS in TSUGU Box E2E run 34561662461",
+    "Deploy TSUGU run 34561643455: SUCCESS for 92b0e488941b1a46e9a1b7387ee414695638c92a",
+    "TSUGU Box E2E run 34561662461: SUCCESS; published modules, A-to-B migration, Seed rerun, Published v1, BoxInstance/Box Binding, explicit v2, old v1 reference preservation, type mismatch rejection, exclusive Binding rejection and idempotent replay verified on a temporary GitHub branch",
+    "TSUGU Architecture E2E run 34561662552: SUCCESS",
+    "TSUGU Sync E2E run 34561662493: SUCCESS",
+    "TSUGU Core Reference E2E run 34561662500: SUCCESS",
+    "TSUGU ChangeSet E2E run 34561662481: SUCCESS",
+    "TSUGU E2E run 34561662516: SUCCESS",
+    "Pages artifact 10184506902: size=55009, digest=sha256:4d55f69e84d9b5486e71122676242e43aa29dc2134e3a3e0a4d86c1039634a3d",
+    "B-01 observation artifact 10184523611: size=486, digest=sha256:c32f742261a0d421d65e606e517221b76dda848c3e611bb8c2d45963042792bb"
   ],
-  "status": "IN_PROGRESS",
+  "status": "PASS",
   "nextTask": "B-02",
-  "rollbackPlan": "Revert the B-01 result commit. B-01 is additive: it does not rewrite Stage A ProjectArchitecture JSON or the current app.js save flow. Do not restore retired server runtimes."
+  "rollbackPlan": "Revert the B-01 result commits. B-01 is additive: it does not rewrite Stage A ProjectArchitecture JSON or the current app.js save flow. Do not restore retired server runtimes."
 }

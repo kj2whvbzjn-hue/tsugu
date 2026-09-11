@@ -37,7 +37,9 @@ Use a condition equivalent to:
 - new PR comment contains `CHATGPT_RESUME_READY:`;
 - ignore comments that do not contain that marker.
 
-Use this task prompt, replacing `<TARGET_CHAT_URL>` with the already-tested existing TSUGU development chat URL:
+The tested relay target is the existing ChatGPT conversation titled `OpenAI API申し込み手順`. Work should identify that conversation by title in ChatGPT history, open it in Cloud Browser, send one resume message, and then stop.
+
+Use this task prompt:
 
 ```text
 You are only a relay for the TSUGU development loop. Do not develop, edit files, run code, call Codex, commit, push, merge, or make product decisions.
@@ -49,7 +51,7 @@ From the marker/comment, read only:
 - verification result
 - Actions run URL
 
-Open <TARGET_CHAT_URL> in Cloud Browser. Send exactly one message in that existing chat in this format:
+Open ChatGPT in Cloud Browser. From chat history, find and open the existing conversation titled `OpenAI API申し込み手順`. Send exactly one message in that existing chat in this format:
 
 再開
 対象SHA: <head SHA>

@@ -11,6 +11,20 @@
 </head>
 <body>
   <div id="app"></div>
+  <details id="stage-b-operations-guide">
+    <summary>Stage B 運用ガイド：目的・変更・証拠・未解決・次作業</summary>
+    <section aria-label="Stage B 運用の確認順">
+      <p>同一Projectと固定version/hash/generationで、次の順に正本を確認します。</p>
+      <ol>
+        <li><strong>目的</strong> — Taskのsubject、purpose、対象version/hash。</li>
+        <li><strong>変更</strong> — PlannedChange、ActualChange、reconciliationのbase/headと安定Path ID。</li>
+        <li><strong>証拠</strong> — Check、FINALIZED EvidenceVersion、Assurance/EventのRequirementSnapshot、target、generation。</li>
+        <li><strong>未解決</strong> — Issue、FAIL、UNKNOWN、unmapped change、active Hold reason。古い世代のPASSは現在保証にしません。</li>
+        <li><strong>次作業</strong> — Task state、TaskDependency、必要Approval、repair Task、次Taskを確認します。</li>
+      </ol>
+      <p><a href="./stage-b-mvp-scenarios.json">B-07 MVP受入10シナリオ</a></p>
+    </section>
+  </details>
   <script src="./core-reference.js?v=core-vnext-a02"></script>
   <script src="./core-architecture.js?v=core-vnext-a03"></script>
   <script src="./core-changeset.js?v=core-vnext-a04"></script>

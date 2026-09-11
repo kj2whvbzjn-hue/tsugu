@@ -5,6 +5,8 @@
     "a04ResultCommit": "5e8957238b87637ee349cb6ba4e4c9d154f01f90",
     "projectRevision": null
   },
+  "resultCommit": "05a8ed686696e68096233749b5873ba7f8e42645",
+  "resultTree": "d4959fd78596cd9951431d6a0e301b2c88a7dca2",
   "scope": [
     "RepositoryCommitRef persistent receive",
     "IntegrationRecord",
@@ -42,15 +44,16 @@
     "change-records/A-05.json"
   ],
   "verificationEvidence": [
-    "node --test tests/core-sync.test.cjs: pending merge",
-    "Deploy TSUGU: pending merge",
-    "TSUGU Sync E2E: pending merge",
-    "TSUGU ChangeSet E2E: pending merge",
-    "TSUGU Architecture E2E: pending merge",
-    "TSUGU Core Reference E2E: pending merge",
-    "TSUGU E2E: pending merge"
+    "Deploy TSUGU run 34559573415: SUCCESS for 05a8ed686696e68096233749b5873ba7f8e42645",
+    "TSUGU Sync E2E run 34559597729: SUCCESS for 05a8ed686696e68096233749b5873ba7f8e42645; contract, persistence/reconciliation and temp-branch scenarios passed",
+    "TSUGU ChangeSet E2E run 34559597692: SUCCESS",
+    "TSUGU Architecture E2E run 34559597693: SUCCESS",
+    "TSUGU Core Reference E2E run 34559597710: SUCCESS",
+    "TSUGU E2E run 34559597735: SUCCESS",
+    "Pages artifact 10183819639: size=43174, digest=sha256:ad79459dfab7671407747e3d690178ab10da276cfa999d51d544a755ce2104a7",
+    "A-05 observation artifact 10183832293: size=476, digest=sha256:eb6815e5fe22c4c4b54d259dd2a3a107e5813c2465233127b4567ec3bbe4da9c"
   ],
-  "status": "IN_PROGRESS",
+  "status": "PASS",
   "nextTask": "B-01",
   "rollbackPlan": "Revert the A-05 result commit. Sync ledger records are additive operational state and do not replace Git history or Private project records. Do not restore retired server runtimes."
 }

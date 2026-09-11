@@ -1,0 +1,46 @@
+{
+  "taskId": "C-02",
+  "baseline": {
+    "gitCommit": "c270b4ef02a4278f182e7fa2dc4df5e273591694",
+    "c01ResultCommit": "ff81e6039b95c9d392bcc8497220e7ae14cd8d7f",
+    "projectRevision": null
+  },
+  "resultCommit": null,
+  "scope": [
+    "derived Architecture Health over B-06 Assurance/Event and C-01 Impact Graph",
+    "evaluation-generation aware differential recalculation",
+    "Health priority FAILED CONFLICT STALE UNVERIFIED WAIVED VALID",
+    "reason counts and provenance",
+    "generation/source fingerprinted derived cache",
+    "Task-local Health evaluation so unrelated changes do not globally block work"
+  ],
+  "acceptance": [
+    "old calculation or cache result is never adopted for a different evaluation generation or source fingerprint",
+    "Health summary priority is FAILED > CONFLICT > STALE > UNVERIFIED > WAIVED > VALID",
+    "Health exposes counts, all reasons and provenance",
+    "C-01 proven-unaffected scope may carry forward prior VALID during RECALCULATING while impacted or Full-test scope remains STALE",
+    "missing Impact Graph and sync UNKNOWN fail closed",
+    "active exact human waiver appears as WAIVED without hiding higher-priority health",
+    "deleting cache and rebuilding from the same authoritative inputs yields the same healthHash and summary",
+    "Task-local Health only considers its subject and explicit Event conditions so unrelated Task remains ready",
+    "cross-Project inputs and stale-generation Task evaluation are rejected"
+  ],
+  "plannedFiles": [
+    "static/core-architecture-health.js",
+    "tests/core-architecture-health.test.cjs",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/architecture-health-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_C02.md",
+    "change-records/C-02.json"
+  ],
+  "verificationEvidence": [
+    "node --check core-architecture-health.js and core-architecture-health.test.cjs: PASS locally",
+    "real B-03/B-04/B-06/C-01 connected contract suite: pending GitHub Actions",
+    "published module and cache rebuild verification: pending post-deploy GitHub Actions"
+  ],
+  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
+  "completedAt": null,
+  "nextTask": "C-03",
+  "rollbackPlan": "Revert the C-02 source commit. ArchitectureHealthSnapshot and its cache are derived state; deleting the cache and rebuilding from Stage B/C-01 authoritative state is the recovery path."
+}

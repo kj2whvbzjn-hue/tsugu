@@ -58,8 +58,17 @@ Open ChatGPT in Cloud Browser. From chat history, find and open the existing con
 検証: <verification result>
 Actions: <Actions run URL>
 
-After the message is successfully sent, end the Work task. Do not perform any other action.
+If delivery succeeds, add exactly one PR comment:
+CHATGPT_RELAY_DELIVERED:<head SHA>
+
+If the chat cannot be opened, the target chat cannot be identified, the message cannot be sent, or another relay failure occurs, add exactly one PR comment:
+CHATGPT_RELAY_FAILED:<head SHA>
+Reason: <short failure reason>
+
+GitHub operations are forbidden except for this single delivery-result comment. After success or failure reporting, end the Work task. Do not perform any other action.
 ```
+
+The Work trigger may receive its own acknowledgement comments. Because the prompt continues only for comments containing `CHATGPT_RESUME_READY:`, `CHATGPT_RELAY_DELIVERED:` and `CHATGPT_RELAY_FAILED:` events must immediately exit without opening Cloud Browser or performing GitHub actions.
 
 ## Loop
 
@@ -67,12 +76,14 @@ After the message is successfully sent, end the Work task. Do not perform any ot
 2. The open PR receives the new commit.
 3. GitHub Actions runs unit tests and Playwright for that exact SHA.
 4. The workflow posts `CHATGPT_RESUME_READY:<sha>` only after verification completes.
-5. Work receives that PR-comment event, opens the existing development chat, posts `再開` with the SHA/result, and exits.
+5. Work receives that PR-comment event, opens the existing development chat, posts `再開` with the SHA/result, then posts one delivery acknowledgement and exits.
 6. The development chat inspects the indicated SHA and Actions result and continues development.
 7. Repeat from step 1.
 
 ## Concurrency and duplicate protection
 
 The workflow uses one concurrency group per PR and cancels an older in-progress verification when a newer commit arrives. The signal step checks existing PR comments and does not emit a second resume signal for the same SHA.
+
+The Work relay posts one acknowledgement per processed resume-ready event: `CHATGPT_RELAY_DELIVERED:<sha>` on success or `CHATGPT_RELAY_FAILED:<sha>` with a short reason on failure.
 
 The loop branch is separate from other AI/development branches. The workflow never writes application changes, never commits generated code, and never pushes to `main`.

@@ -5,7 +5,7 @@
     "b02ResultCommit": "af6bbf126ce3aa0fd4c3713909b019798180401c",
     "projectRevision": null
   },
-  "resultCommit": null,
+  "resultCommit": "335848b757ff9604c838758ba465d193118cd9b6",
   "scope": [
     "Task planning contract with separate start/completion conditions",
     "Approval target/version/hash/policy/expiry binding",
@@ -34,6 +34,7 @@
     "static/core-governance-changeset.js",
     "tests/core-governance.test.cjs",
     "static/index.html",
+    ".github/workflows/pages.yml",
     ".github/workflows/governance-e2e.yml",
     "docs/TSUGU_CORE_VNEXT_B03.md",
     "change-records/B-03.json"
@@ -41,10 +42,12 @@
   "verificationEvidence": [
     "local isolated B-03 contract suite: 7/7 PASS",
     "node --check core-governance.js/core-governance-changeset.js: PASS locally",
-    "deployment and repository-integrated E2E: pending GitHub Actions"
+    "all 8 uploaded B-03 file Git blob SHAs matched the locally verified files exactly",
+    "Deploy TSUGU run 34604629750: SUCCESS for 335848b757ff9604c838758ba465d193118cd9b6; Build, upload and Pages deploy steps passed",
+    "TSUGU Governance E2E run 34604666730: SUCCESS; B-03 contract suite and published module/GitHub Governance ChangeSet flow passed"
   ],
-  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
-  "completedAt": null,
+  "status": "PASS",
+  "completedAt": "2026-09-11T13:30:26Z",
   "nextTask": "B-04",
-  "rollbackPlan": "Revert the B-03 source commit. B-03 is additive and leaves B-02 Rule/Test storage and existing app.js save flow intact."
+  "rollbackPlan": "Revert the B-03 source merge commit. B-03 is additive and leaves B-02 Rule/Test storage and existing app.js save flow intact."
 }

@@ -1,0 +1,159 @@
+name: TSUGU Stage B MVP E2E
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'static/stage-b-mvp-scenarios.json'
+      - 'tests/stage-b-mvp-acceptance.cjs'
+      - 'static/index.html'
+      - '.github/workflows/pages.yml'
+      - '.github/workflows/stage-b-mvp-e2e.yml'
+      - 'docs/TSUGU_CORE_VNEXT_B07.md'
+      - 'change-records/B-07.json'
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-stage-b-mvp-e2e-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'main' }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Execute plan chapter 9 ten-scenario acceptance
+        env:
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          STAGE_B_EVIDENCE_PATH: stage-b-mvp-evidence.json
+        run: node tests/stage-b-mvp-acceptance.cjs
+
+      - name: Build local TSUGU site
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -a static/. _site/
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
+          rm -f _site/app.js.gz.b64
+          node --check _site/app.js
+
+      - name: Verify published B-07 manifest and index
+        if: ${{ github.event_name == 'workflow_run' }}
+        env:
+          E2E_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/stage-b-mvp-scenarios.json?run=${E2E_RUN_ID}" -o /tmp/published-stage-b-mvp-scenarios.json
+          curl -fsSL "https://kj2whvbzjn-hue.github.io/tsugu/index.html?run=${E2E_RUN_ID}" -o /tmp/published-index.html
+          cmp static/stage-b-mvp-scenarios.json /tmp/published-stage-b-mvp-scenarios.json
+          cmp static/index.html /tmp/published-index.html
+
+      - name: Install Playwright
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify operations guide display keyboard and reload
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          E2E_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --directory _site >/tmp/b07-http.log 2>&1 &
+          echo $! >/tmp/b07-http.pid
+          node <<'NODE'
+          (async()=>{
+            const assert=require('node:assert/strict');
+            const {chromium}=require('playwright');
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:1280,height:900}});
+            const target=process.env.EVENT_NAME==='workflow_run'
+              ? `https://kj2whvbzjn-hue.github.io/tsugu/?b07=${process.env.E2E_RUN_ID}`
+              : 'http://127.0.0.1:4173/';
+            try{
+              await page.goto(target,{waitUntil:'networkidle',timeout:60000});
+              const guide=page.locator('#stage-b-operations-guide');
+              await guide.waitFor({state:'visible',timeout:15000});
+              const summary=guide.locator('summary');
+              await summary.focus();
+              await page.keyboard.press('Enter');
+              assert.equal(await guide.evaluate(el=>el.open),true,'operations guide must open from keyboard');
+              const text=await guide.innerText();
+              for(const label of ['目的','変更','証拠','未解決','次作業']) assert.ok(text.includes(label),`missing operations label ${label}`);
+              assert.equal(await page.locator('a[href="./stage-b-mvp-scenarios.json"]').count(),1);
+              await page.reload({waitUntil:'networkidle',timeout:60000});
+              assert.equal(await page.locator('#stage-b-operations-guide').count(),1,'operations guide must survive reload');
+              console.log(`B-07 UI PASS target=${target}`);
+            }finally{await browser.close();}
+          })().catch(e=>{console.error(e.stack||e);process.exit(1);});
+          NODE
+
+      - name: Verify real GitHub content CAS race and retry
+        if: ${{ github.event_name == 'workflow_run' }}
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          E2E_RUN_ID: ${{ github.run_id }}
+          E2E_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const assert=require('node:assert/strict');
+            const fs=require('node:fs');
+            const owner='kj2whvbzjn-hue',repo='tsugu',token=process.env.GH_TOKEN_E2E;
+            const branch=`b07-e2e-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}`;
+            const targetPath=`data/e2e/b07-cas-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}.json`;
+            const headers={Accept:'application/vnd.github+json',Authorization:`Bearer ${token}`,'X-GitHub-Api-Version':'2022-11-28','User-Agent':'tsugu-b07-e2e'};
+            async function request(path,options={}){
+              const r=await fetch(`https://api.github.com${path}`,{...options,headers:{...headers,...(options.headers||{})}});
+              const text=await r.text();let body=null;try{body=text?JSON.parse(text):null;}catch{body={message:text};}
+              return{ok:r.ok,status:r.status,body};
+            }
+            async function put(content,sha){return request(`/repos/${owner}/${repo}/contents/${targetPath}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'B-07 CAS E2E',content:Buffer.from(JSON.stringify(content)).toString('base64'),branch,...(sha?{sha}:{})})});}
+            const create=await request(`/repos/${owner}/${repo}/git/refs`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:`refs/heads/${branch}`,sha:process.env.SOURCE_SHA})});
+            assert.equal(create.ok,true,`create branch ${create.status}`);
+            const evidence={type:'StageBLiveGitHubEvidence',taskId:'B-07',sourceSha:process.env.SOURCE_SHA,branch,targetPath,runId:process.env.E2E_RUN_ID,runAttempt:process.env.E2E_RUN_ATTEMPT};
+            try{
+              const seed=await put({writer:'seed',revision:1});assert.equal(seed.ok,true,`seed ${seed.status}`);
+              const baseBlob=seed.body.content.sha;
+              const race=await Promise.all([put({writer:'A',revision:2},baseBlob),put({writer:'B',revision:2},baseBlob)]);
+              const success=race.filter(x=>x.ok),conflict=race.filter(x=>!x.ok&&[409,422].includes(x.status));
+              assert.equal(success.length,1,'exactly one same-SHA writer must succeed');
+              assert.equal(conflict.length,1,'exactly one same-SHA writer must be rejected by CAS');
+              const read=await request(`/repos/${owner}/${repo}/contents/${targetPath}?ref=${encodeURIComponent(branch)}`);assert.equal(read.ok,true);
+              const retry=await put({writer:'retry',revision:3},read.body.sha);assert.equal(retry.ok,true,`retry ${retry.status}`);
+              const finalRead=await request(`/repos/${owner}/${repo}/contents/${targetPath}?ref=${encodeURIComponent(branch)}`);assert.equal(finalRead.ok,true);
+              const final=JSON.parse(Buffer.from(finalRead.body.content.replace(/\n/g,''),'base64').toString('utf8'));
+              assert.deepEqual(final,{writer:'retry',revision:3});
+              Object.assign(evidence,{status:'PASS',raceStatuses:race.map(x=>x.status),seedCommit:seed.body.commit.sha,retryCommit:retry.body.commit.sha,finalBlobSha:finalRead.body.sha});
+              fs.writeFileSync('stage-b-live-github.json',JSON.stringify(evidence,null,2)+'\n');
+              console.log(`B-07 GitHub CAS PASS race=${evidence.raceStatuses.join(',')} retry=${retry.body.commit.sha}`);
+            }finally{
+              await request(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,{method:'DELETE'}).catch(()=>null);
+            }
+          })().catch(e=>{console.error(e.stack||e);process.exit(1);});
+          NODE
+
+      - name: Upload B-07 acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-b-mvp-evidence-${{ github.run_id }}
+          path: |
+            stage-b-mvp-evidence.json
+            stage-b-live-github.json
+          if-no-files-found: ignore

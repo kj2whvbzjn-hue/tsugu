@@ -1,0 +1,60 @@
+name: TSUGU C-04 UI Usability E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'static/c04-ui-usability-plan.json'
+      - 'tests/c04-ui-usability.e2e.cjs.gz.b64'
+      - '.github/workflows/c04-ui-usability-e2e.yml'
+      - 'static/**'
+      - 'change-records/C-04.json'
+      - 'docs/TSUGU_CORE_VNEXT_C04.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-c04-ui-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  ui-usability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Decode and verify frozen C-04 E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode tests/c04-ui-usability.e2e.cjs.gz.b64 | gzip --decompress > /tmp/c04-ui-usability.e2e.cjs
+          node --check /tmp/c04-ui-usability.e2e.cjs
+          test "$(sha256sum /tmp/c04-ui-usability.e2e.cjs | awk '{print $1}')" = "37a0a2da43acece456343e87306c3770030d810f097c4c21838cb44851533c1a"
+          node -e "const p=require('./static/c04-ui-usability-plan.json'); if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==1)process.exit(1)"
+
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Register frozen plan and execute published UI usability tests
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+        run: node /tmp/c04-ui-usability.e2e.cjs
+
+      - name: Upload C-04 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c04-ui-usability-evidence-${{ github.run_id }}
+          path: |
+            c04-ui-usability-evidence.json
+            c04-mobile.png
+            c04-desktop.png
+          if-no-files-found: ignore

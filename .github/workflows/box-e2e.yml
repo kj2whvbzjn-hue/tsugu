@@ -23,7 +23,7 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - name: Verify B-01 contracts
-        run: node --test tests/core-box.test.cjs
+        run: node --test tests/core-box*.test.cjs
       - name: Verify published modules and GitHub Box ChangeSet flow
         env:
           GH_TOKEN_E2E: ${{ github.token }}

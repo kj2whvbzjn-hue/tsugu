@@ -1,0 +1,49 @@
+{
+  "taskId": "C-03",
+  "baseline": {
+    "gitCommit": "8b2dc40e85070c0a61d8e54b797fd14261924adf",
+    "c02ResultCommit": "56ab4771a17b2bfe80202371d066a0dfdb134a9d",
+    "c02PassRecordCommit": "8b2dc40e85070c0a61d8e54b797fd14261924adf",
+    "projectRevision": null
+  },
+  "resultCommit": null,
+  "scope": [
+    "GitHub delivery identity separated from mutable branch current state",
+    "reverse notification protection and fresh GitHub head reconciliation",
+    "missing commit replay through GitHub compare",
+    "GitHub API UNKNOWN/retry and non-fast-forward incident handling",
+    "expired SyncJob lease recovery using A-05 lease contract",
+    "business-state immutability guard for Approval Decision Waiver Task",
+    "sync processing and C-02 recalculation load probe"
+  ],
+  "acceptance": [
+    "reverse-order GitHub notifications do not overwrite current branch fact",
+    "missing commit ingestion is recovered through explicit reconciliation",
+    "GitHub API failures remain UNKNOWN and retryable instead of guessing deletion/completion",
+    "expired processing lease can be reclaimed without partial business mutation",
+    "automatic correction cannot modify Approval Decision Waiver or Task business decisions",
+    "processing time and recalculation latency are measured at a G0/operations agreed data scale",
+    "threshold exceedance records its cause"
+  ],
+  "plannedFiles": [
+    "static/core-sync-recovery.js",
+    "tests/core-sync-recovery.test.cjs",
+    "scripts/c03-load-probe.cjs",
+    "docs/TSUGU_CORE_VNEXT_C03.md",
+    "docs/TSUGU_CORE_VNEXT_C03_LOAD_PROFILE.json",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/sync-recovery-e2e.yml",
+    "change-records/C-03.json"
+  ],
+  "verificationEvidence": [
+    "core-sync-recovery local syntax and 10 recovery/load-contract tests: PASS",
+    "real A-05/C-02 connected recovery contracts: pending GitHub Actions",
+    "published module and engineering load evidence: pending post-deploy GitHub Actions",
+    "private tsugu-data operational scale: unavailable to current GitHub connection (404); approved load profile is still required"
+  ],
+  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E_AND_LOAD_PROFILE_APPROVAL",
+  "completedAt": null,
+  "nextTask": "C-03-LOAD-PROFILE-APPROVAL",
+  "rollbackPlan": "Revert the C-03 source commit. C-03 Recovery state and load evidence are auxiliary; A-05 Sync aggregate and B/C business state remain authoritative and are not migrated."
+}

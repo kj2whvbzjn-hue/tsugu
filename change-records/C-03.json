@@ -6,7 +6,7 @@
     "c02PassRecordCommit": "8b2dc40e85070c0a61d8e54b797fd14261924adf",
     "projectRevision": null
   },
-  "resultCommit": null,
+  "resultCommit": "916754791a3545a7bed34109ab516c06059e9c8a",
   "scope": [
     "GitHub delivery identity separated from mutable branch current state",
     "reverse notification protection and fresh GitHub head reconciliation",
@@ -37,13 +37,31 @@
     "change-records/C-03.json"
   ],
   "verificationEvidence": [
-    "core-sync-recovery local syntax and 10 recovery/load-contract tests: PASS",
-    "real A-05/C-02 connected recovery contracts: pending GitHub Actions",
-    "published module and engineering load evidence: pending post-deploy GitHub Actions",
-    "private tsugu-data operational scale: unavailable to current GitHub connection (404); approved load profile is still required"
+    "local core-sync-recovery syntax and 10 recovery/load-contract tests: PASS",
+    "GitHub module/test blobs exactly matched locally verified blobs: core-sync-recovery e282831022d40c4628d876089471c4a6bd997b16; test 32975f2a7473d38537bd40245efa54d4fb5a113d",
+    "C-03 materialize run 34646055863: PASS against repository real A-05 Sync and C-02 Health modules",
+    "PR #23 TSUGU Sync Recovery E2E run 34646194432: PASS; engineering probe only syncMs=702.028, recalculationMs=99.826, assessment=AWAITING_PROFILE_APPROVAL",
+    "PR #23 C-01 Impact Graph, C-02 Architecture Health, and Stage B MVP regression workflows: PASS",
+    "Deploy TSUGU run 34646315362 for resultCommit 916754791a3545a7bed34109ab516c06059e9c8a: PASS",
+    "post-deploy TSUGU Sync Recovery E2E run 34646346358: PASS for 10 recovery contracts, published core-sync-recovery.js exact source comparison, engineering load evidence, and evidence upload",
+    "post-deploy engineering probe: integrationRecords=250, missedCommits=100, recalculationItems=200, syncMs=685.011, recalculationMs=99, assessment=AWAITING_PROFILE_APPROVAL",
+    "private kj2whvbzjn-hue/tsugu-data operational scale remains unavailable to current GitHub connection (404); the engineering profile is approved=false and has no acceptance thresholds"
   ],
-  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E_AND_LOAD_PROFILE_APPROVAL",
+  "status": "IMPLEMENTATION_VERIFIED_AWAITING_LOAD_PROFILE_APPROVAL",
   "completedAt": null,
   "nextTask": "C-03-LOAD-PROFILE-APPROVAL",
+  "blockingDecision": {
+    "type": "LOAD_PROFILE_APPROVAL",
+    "required": true,
+    "requiredFields": [
+      "integrationRecords",
+      "missedCommits",
+      "recalculationItems",
+      "maxSyncMs",
+      "maxRecalculationMs",
+      "approvalRef"
+    ],
+    "reason": "Plan v2.3 requires C-03 performance acceptance at a G0/operations agreed data scale. Current private operational scale is not visible and the committed profile is intentionally unapproved, so C-03 cannot be marked PASS and D-01 must not start."
+  },
   "rollbackPlan": "Revert the C-03 source commit. C-03 Recovery state and load evidence are auxiliary; A-05 Sync aggregate and B/C business state remain authoritative and are not migrated."
 }

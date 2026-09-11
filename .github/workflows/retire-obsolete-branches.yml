@@ -1,0 +1,22 @@
+name: Retire obsolete TSUGU branches
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/retire-obsolete-branches.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Remove obsolete public-repository branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin --delete tsugu-data
+          git push origin --delete vnext-g0-20260910

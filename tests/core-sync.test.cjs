@@ -83,3 +83,5 @@ test('hydrate validation rejects duplicate business integrations and orphan jobs
   const orphan = JSON.parse(JSON.stringify(received)); orphan.jobs[0].integrationRecordId='missing';
   assert.throws(() => Sync.validateSyncAggregate(orphan), e => e.code==='SYNC_JOB_INTEGRATION_NOT_FOUND');
 });
+
+require('./core-sync-storage.test.cjs');

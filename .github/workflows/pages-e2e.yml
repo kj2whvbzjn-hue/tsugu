@@ -1,0 +1,204 @@
+name: TSUGU Pages Playwright E2E
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/pages-e2e.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-pages-playwright-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Exercise deployed UI and GitHub write path
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          TSUGU_URL: https://kj2whvbzjn-hue.github.io/tsugu/
+          OWNER: kj2whvbzjn-hue
+          DATA_REPO: tsugu
+          DATA_BRANCH: tsugu-data
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('node:assert/strict');
+
+          const token = process.env.GH_TOKEN_E2E;
+          const url = process.env.TSUGU_URL;
+          const owner = process.env.OWNER;
+          const repo = process.env.DATA_REPO;
+          const branch = process.env.DATA_BRANCH;
+          const headers = {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${token}`,
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'tsugu-pages-playwright-e2e'
+          };
+
+          async function gh(path, options = {}) {
+            const r = await fetch(`https://api.github.com${path}`, {
+              ...options,
+              headers: { ...headers, ...(options.headers || {}) }
+            });
+            if (r.status === 404) return { status: 404, data: null };
+            const text = await r.text();
+            if (!r.ok) throw new Error(`GitHub API ${r.status}: ${text}`);
+            return { status: r.status, data: text ? JSON.parse(text) : null };
+          }
+
+          async function listProjects() {
+            const r = await gh(`/repos/${owner}/${repo}/contents/data/projects?ref=${encodeURIComponent(branch)}`);
+            if (r.status === 404) return [];
+            return Array.isArray(r.data) ? r.data.filter(x => x.type === 'file' && x.name.endsWith('.json')) : [];
+          }
+
+          const before = await listProjects();
+          const beforeNames = new Set(before.map(x => x.name));
+          console.log(`Before: ${before.length} project JSON file(s)`);
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+          page.on('console', m => console.log(`[browser:${m.type()}] ${m.text()}`));
+          page.on('pageerror', e => console.log(`[pageerror] ${e.stack || e.message}`));
+
+          // The production UI intentionally refuses public data repositories.
+          // For E2E only, make repository metadata appear private while all actual
+          // contents calls go to the public repo's tsugu-data branch. Also replace
+          // the placeholder PAT with this workflow's short-lived GITHUB_TOKEN.
+          await page.addInitScript(({ actualToken, owner, repo }) => {
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = async (input, init = {}) => {
+              const requestUrl = typeof input === 'string' ? input : input.url;
+              const originalHeaders = init.headers || (typeof input !== 'string' ? input.headers : undefined);
+              const h = new Headers(originalHeaders || {});
+              if (requestUrl.startsWith('https://api.github.com/')) {
+                h.set('Authorization', `Bearer ${actualToken}`);
+              }
+              const response = await originalFetch(input, { ...init, headers: h });
+              if (requestUrl === `https://api.github.com/repos/${owner}/${repo}` && response.ok) {
+                const data = await response.clone().json();
+                data.private = true;
+                const responseHeaders = new Headers(response.headers);
+                responseHeaders.delete('content-length');
+                responseHeaders.delete('content-encoding');
+                return new Response(JSON.stringify(data), {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: responseHeaders
+                });
+              }
+              return response;
+            };
+          }, { actualToken: token, owner, repo });
+
+          let created = null;
+          try {
+            await page.goto(`${url}?e2e=${Date.now()}`, { waitUntil: 'networkidle', timeout: 60000 });
+            await page.screenshot({ path: 'e2e-01-connect.png', fullPage: true });
+
+            const inputs = page.locator('input');
+            console.log('Initial input count:', await inputs.count());
+            assert.ok(await inputs.count() >= 4, 'Expected four connection inputs');
+            await inputs.nth(0).fill(owner);
+            await inputs.nth(1).fill(repo);
+            await inputs.nth(2).fill(branch);
+            await inputs.nth(3).fill('github_pat_e2e_placeholder');
+            await page.getByRole('button', { name: '接続', exact: true }).click();
+            await page.getByText(/GitHubから\d+件を読み込みました/).waitFor({ timeout: 30000 });
+            console.log('Connected through deployed UI');
+            await page.screenshot({ path: 'e2e-02-connected.png', fullPage: true });
+
+            await page.getByRole('button', { name: /新規案件/ }).click();
+            await page.waitForTimeout(500);
+            console.log('Buttons after new project:', await page.getByRole('button').allTextContents());
+            console.log('Page text after new project:\n' + (await page.locator('body').innerText()).slice(0, 8000));
+            await page.screenshot({ path: 'e2e-03-new-project.png', fullPage: true });
+
+            // Handle a create dialog if the implementation uses one.
+            const dialog = page.getByRole('dialog').first();
+            if (await dialog.count() && await dialog.isVisible()) {
+              const di = dialog.locator('input[type="text"], input:not([type])');
+              if (await di.count()) await di.first().fill(`Actions E2E ${new Date().toISOString()}`);
+              const confirm = dialog.getByRole('button', { name: /作成|追加|確定|保存/ }).first();
+              if (await confirm.count()) await confirm.click();
+              await page.waitForTimeout(500);
+            }
+
+            const buttons = page.getByRole('button');
+            const buttonTexts = await buttons.allTextContents();
+            const saveCandidates = [];
+            for (let i = 0; i < buttonTexts.length; i++) {
+              if (/保存/.test(buttonTexts[i])) saveCandidates.push(i);
+            }
+            assert.ok(saveCandidates.length, `No save button found. Buttons: ${JSON.stringify(buttonTexts)}`);
+            let clicked = false;
+            for (const i of saveCandidates) {
+              const b = buttons.nth(i);
+              if (await b.isVisible() && await b.isEnabled()) {
+                await b.click();
+                clicked = true;
+                break;
+              }
+            }
+            assert.ok(clicked, 'No visible enabled save button found');
+
+            for (let i = 0; i < 25; i++) {
+              await page.waitForTimeout(1000);
+              const after = await listProjects();
+              created = after.find(x => !beforeNames.has(x.name));
+              if (created) break;
+            }
+            await page.screenshot({ path: 'e2e-04-after-save.png', fullPage: true });
+            assert.ok(created, 'UI save did not create data/projects/*.json');
+            console.log(`Created by UI: ${created.path}`);
+
+            const file = await gh(`/repos/${owner}/${repo}/contents/${created.path}?ref=${encodeURIComponent(branch)}`);
+            const project = JSON.parse(Buffer.from(file.data.content.replace(/\n/g, ''), 'base64').toString('utf8'));
+            assert.equal(project.schemaVersion, 1);
+            assert.ok(project.id);
+            assert.ok(Number.isInteger(project.revision) && project.revision >= 1);
+            console.log(`Read-back OK: id=${project.id}, revision=${project.revision}, schemaVersion=${project.schemaVersion}`);
+          } finally {
+            if (created) {
+              try {
+                await gh(`/repos/${owner}/${repo}/contents/${created.path}`, {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ message: `E2E cleanup: ${created.name}`, sha: created.sha, branch })
+                });
+                console.log('E2E cleanup OK');
+              } catch (e) {
+                console.log('E2E cleanup failed:', e.message);
+              }
+            }
+            await browser.close();
+          }
+          NODE
+
+      - name: Upload E2E screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsugu-pages-playwright-screenshots
+          path: e2e-*.png
+          if-no-files-found: ignore

@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'static/**'
+      - 'docs/TSUGU_CORE_VNEXT_C03_LOAD_PROFILE.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 

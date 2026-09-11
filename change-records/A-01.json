@@ -1,0 +1,54 @@
+{
+  "taskId": "A-01",
+  "baseline": {
+    "gitCommit": "1f3a551361e691352e35dccfc5b40a5c34aa1d6a",
+    "deployment": "GitHub Pages main deployment; run to be recorded after merge",
+    "projectRevision": null
+  },
+  "plannedFiles": [
+    "static/core-guard.js",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/e2e.yml",
+    "tests/core-guard.test.cjs",
+    "docs/TSUGU_CORE_VNEXT_G0_CONTRACT.md",
+    "change-records/A-01.json"
+  ],
+  "dependencies": [
+    "GitHub /user -> Actor",
+    "GitHub repository permissions -> Project role",
+    "Project aggregate PUT -> Core Guard -> GitHub Contents API",
+    "Project revision + blob SHA -> optimistic concurrency",
+    "Core Guard audit -> project.core.auditEvents"
+  ],
+  "protectedAreas": [
+    "Existing compressed static/app.js bundle",
+    "Private project data outside the single target project path",
+    "Historical audit events",
+    "System-managed actor and permission records",
+    "Legacy server runtime remains removed"
+  ],
+  "actualFiles": [
+    "static/core-guard.js",
+    "static/index.html",
+    ".github/workflows/pages.yml",
+    ".github/workflows/e2e.yml",
+    "tests/core-guard.test.cjs",
+    "docs/TSUGU_CORE_VNEXT_G0_CONTRACT.md",
+    "change-records/A-01.json"
+  ],
+  "verificationPlan": [
+    "Core Guard syntax check",
+    "Unit tests reject project crossing, actor spoofing, permission self-elevation, audit tampering, and revision jumps",
+    "Unit tests derive Actor and Permission from GitHub facts and append audit",
+    "Pages build includes and syntax-checks core-guard.js before app.js",
+    "E2E creates a project through the published UI and verifies Actor/Permission/Audit on GitHub readback"
+  ],
+  "verificationEvidence": [
+    "node --check static/core-guard.js: PASS locally",
+    "node --test tests/core-guard.test.cjs: 10/10 PASS locally",
+    "GitHub Actions Deploy TSUGU: pending merge",
+    "GitHub Actions TSUGU E2E: pending merge"
+  ],
+  "rollbackPlan": "Revert the A-01 commit. Project JSON fields added by Core Guard are additive and ignored by the existing UI; do not delete project data or restore the retired server runtime."
+}

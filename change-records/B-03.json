@@ -1,0 +1,50 @@
+{
+  "taskId": "B-03",
+  "baseline": {
+    "gitCommit": "af6bbf126ce3aa0fd4c3713909b019798180401c",
+    "b02ResultCommit": "af6bbf126ce3aa0fd4c3713909b019798180401c",
+    "projectRevision": null
+  },
+  "resultCommit": null,
+  "scope": [
+    "Task planning contract with separate start/completion conditions",
+    "Approval target/version/hash/policy/expiry binding",
+    "human-required approval fail-closed actor-kind enforcement",
+    "Waiver request hashing, human approval binding, scope/version/hash validation and revocation",
+    "Decision immutable versions",
+    "Issue and IssueEvent history",
+    "Task Hold/Interrupt/Resume-request/Cancel history",
+    "GovernanceChangeSet actor-fixed GitHub CAS persistence"
+  ],
+  "acceptance": [
+    "Task start and completion conditions are stored separately",
+    "Task plan edits advance version/hash and make old approvals inapplicable",
+    "Approval authority fields cannot be supplied by operation payloads",
+    "human-required Approval cannot be granted by AI, Bot or System actor kinds",
+    "Approval revocation is append-only and expiry is evaluated at use time",
+    "Rule weakening Waiver requires exact human WAIVER Approval, target/superseded Rule versions and hashes, scope, Policy and expiry",
+    "Decision content is SHA-256 fixed",
+    "Issue resolution preserves source Check IDs and appends history",
+    "multiple Hold reasons are independent and resolving one does not auto-resume",
+    "Task Start/Resume/Complete remain unavailable until B-06 Event/Assurance revalidation is connected",
+    "persistent B-03 changes require GovernanceChangeSet with revision/blob CAS and actor-bound ValidationRecord"
+  ],
+  "plannedFiles": [
+    "static/core-governance.js",
+    "static/core-governance-changeset.js",
+    "tests/core-governance.test.cjs",
+    "static/index.html",
+    ".github/workflows/governance-e2e.yml",
+    "docs/TSUGU_CORE_VNEXT_B03.md",
+    "change-records/B-03.json"
+  ],
+  "verificationEvidence": [
+    "local isolated B-03 contract suite: 7/7 PASS",
+    "node --check core-governance.js/core-governance-changeset.js: PASS locally",
+    "deployment and repository-integrated E2E: pending GitHub Actions"
+  ],
+  "status": "SOURCE_IMPLEMENTED_AWAITING_E2E",
+  "completedAt": null,
+  "nextTask": "B-04",
+  "rollbackPlan": "Revert the B-03 source commit. B-03 is additive and leaves B-02 Rule/Test storage and existing app.js save flow intact."
+}

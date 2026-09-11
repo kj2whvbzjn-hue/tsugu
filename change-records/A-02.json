@@ -5,6 +5,7 @@
     "deployment": "A-01 verified deployment run 34554150292",
     "projectRevision": null
   },
+  "resultCommit": "6d5b2a292baeb6401d60dcb8e8ad9cc3572eb323",
   "scope": [
     "RepositoryCommitRef",
     "RepositoryBaseline",
@@ -40,10 +41,15 @@
   "verificationEvidence": [
     "node --check static/core-reference.js: PASS locally",
     "node --test tests/core-reference.test.cjs: 7/7 PASS locally",
-    "Deploy TSUGU: pending merge",
-    "TSUGU E2E: pending merge",
-    "TSUGU Core Reference E2E: pending merge"
+    "Deploy TSUGU run 34555410336: SUCCESS for 6d5b2a292baeb6401d60dcb8e8ad9cc3572eb323",
+    "TSUGU E2E run 34555433880: SUCCESS for 6d5b2a292baeb6401d60dcb8e8ad9cc3572eb323",
+    "TSUGU Core Reference E2E run 34555433814: SUCCESS for 6d5b2a292baeb6401d60dcb8e8ad9cc3572eb323",
+    "RepositoryBaseline tree SHA: 8ea2c8a736d015ceb4120473e0f0b05c2d7d7c5e",
+    "Pages artifact 10182358345: github-pages, size=23096, digest=sha256:9b24a7614a6dc69cc89a6e73cbf0cc3ae8591a6a20571a4eeac1ec26820c7ec3",
+    "Deployment workflow config blob SHA: 6c57079476ae70ea05903ea68a3f51a7ef030e42",
+    "Core Reference observation artifact 10182365967: digest=sha256:87bb9a6869db026cc6aaaf2e473b7b5bb6ec337cb12103343e12ec9e74d5f3e2"
   ],
-  "status": "IN_PROGRESS",
+  "status": "PASS",
+  "nextTask": "A-03",
   "rollbackPlan": "Revert the A-02 result commit. Do not restore retired server runtimes or alter Private project data. Repository/Deployment records are additive immutable facts and do not replace Git history."
 }

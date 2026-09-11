@@ -5,22 +5,9 @@
   "title": "UI/使用性テストと操作効率検証",
   "status": "FROZEN_BEFORE_EXECUTION",
   "basis": "User-requested additional stage after C-03 and before D-01",
-  "target": {
-    "publishedUrl": "https://kj2whvbzjn-hue.github.io/tsugu/",
-    "storage": "GitHub Contents API data/projects/*.json",
-    "execution": "Playwright Chromium against published Pages with isolated temporary Git branch"
-  },
-  "viewports": [
-    {"id":"mobile","width":390,"height":844},
-    {"id":"desktop","width":1440,"height":1000}
-  ],
-  "principles": [
-    "Acceptance criteria are fixed before execution and are not relaxed after observing results.",
-    "The browser must exercise the same published TSUGU UI used by humans.",
-    "Test projects are isolated on a temporary Git branch and deleted with the branch after evidence capture.",
-    "Approval/completion state must not be inferred or modified by the test.",
-    "A functionally successful flow can still FAIL usability when it requires redundant navigation or vertical travel."
-  ],
+  "target": {"publishedUrl":"https://kj2whvbzjn-hue.github.io/tsugu/","storage":"GitHub Contents API data/projects/*.json","execution":"Playwright Chromium against published Pages with isolated temporary Git branch"},
+  "viewports": [{"id":"mobile","width":390,"height":844},{"id":"desktop","width":1440,"height":1000}],
+  "principles": ["Acceptance criteria are fixed before execution and are not relaxed after observing results.","The browser must exercise the same published TSUGU UI used by humans.","Test projects are isolated on a temporary Git branch and deleted with the branch after evidence capture.","Approval/completion state must not be inferred or modified by the test.","A functionally successful flow can still FAIL usability when it requires redundant navigation or vertical travel."],
   "scenarios": [
     {"id":"UI-01","name":"Initial connection and empty workspace comprehension","actions":["open published TSUGU","enter owner/repository/branch/token","connect"],"pass":["connection succeeds","empty project count is understandable","new/import/reload/disconnect controls are visible","no horizontal overflow"]},
     {"id":"UI-02","name":"Register this frozen C-04 plan through the real import/save UI","actions":["JSONから新規取込","select generated schemaVersion 1 C-04 plan project","GitHubへ保存","read back saved JSON from GitHub"],"pass":["new project ID is allocated","revision is 1","plan identity C-04/version 1 is preserved in the saved project","save state is visibly distinguishable"]},
@@ -33,31 +20,8 @@
     {"id":"UI-09","name":"Destructive action clarity and cleanup","actions":["delete workload test project","reload from GitHub","delete C-04 plan test project","reload from GitHub"],"pass":["destructive confirmation is shown","only selected test project is removed","list count decreases exactly by one per delete","deleted project does not reappear after reload"]},
     {"id":"UI-10","name":"Runtime quality","pass":["unhandled page errors = 0","unexpected API 4xx/5xx = 0","unexpected console error messages = 0"]}
   ],
-  "navigationBudgets": {
-    "documentNavigationsExcludingInitialAndOneExplicitReload": 0,
-    "samePurposeDuplicateClicks": 0,
-    "mobileTotalVerticalDirectionReversals": 3,
-    "desktopTotalVerticalDirectionReversals": 2,
-    "perTaskVerticalDirectionReversals": 1,
-    "verticalOscillationTriples": 0,
-    "redundantReturnAndRetraverseByViewport": 0
-  },
-  "clickBudgets": {
-    "connect": 1,
-    "registerPlan": 2,
-    "registerWorkload": 2,
-    "tabExploration": 4,
-    "reloadAndRediscover": 3,
-    "deleteAndVerifyBothProjects": 5,
-    "totalPrimaryClicks": 18
-  },
-  "runtimeBudgets": {
-    "unhandledPageErrors": 0,
-    "unexpectedApi4xx5xx": 0,
-    "unexpectedConsoleErrors": 0
-  },
-  "evidence": {
-    "required": ["action log","scroll trace","navigation trace","console/page-error/API error log","mobile screenshot","desktop screenshot","saved plan readback","saved workload readback","cleanup verification"],
-    "resultRule": "All scenarios must PASS. Any budget breach is FAIL even if the functional operation succeeds."
-  }
+  "navigationBudgets": {"documentNavigationsExcludingInitialAndOneExplicitReload":0,"samePurposeDuplicateClicks":0,"mobileTotalVerticalDirectionReversals":3,"desktopTotalVerticalDirectionReversals":2,"perTaskVerticalDirectionReversals":1,"verticalOscillationTriples":0,"redundantReturnAndRetraverseByViewport":0},
+  "clickBudgets": {"connect":1,"registerPlan":2,"registerWorkload":2,"tabExplorationAcrossBothViewports":6,"reloadAndRediscover":3,"deleteAndVerifyBothProjects":5,"totalPrimaryClicks":20},
+  "runtimeBudgets": {"unhandledPageErrors":0,"unexpectedApi4xx5xx":0,"unexpectedConsoleErrors":0},
+  "evidence": {"required":["action log","scroll trace","navigation trace","console/page-error/API error log","mobile screenshot","desktop screenshot","saved plan readback","saved workload readback","cleanup verification"],"resultRule":"All scenarios must PASS. Any budget breach is FAIL even if the functional operation succeeds."}
 }

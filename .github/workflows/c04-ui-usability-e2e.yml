@@ -102,7 +102,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           s=Path('_site/app.js').read_text()
-          for needle in ['GitHubから', '読み込みました']:
+          for needle in ['async function gh', 'function gh', 'GitHubから', '読み込みました']:
               print(f'--- APP SOURCE AROUND {needle} ---')
               start=0
               for n in range(5):

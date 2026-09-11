@@ -1,0 +1,86 @@
+name: TSUGU C-04 Materialize UI Repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/c04-materialize-ui.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: ${{ github.head_ref == 'vnext-c04-ui-usability-20260912' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - name: Apply C-04 product repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/app.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/app.js')
+          s=p.read_text()
+
+          gh_old="async function gh(path,init={},allow404=false){const r=await fetch(API+path,{...init,headers:{...ghHeaders(),...(init.headers||{})}});"
+          gh_new="async function gh(path,init={},allow404=false){const method=String(init.method||'GET').toUpperCase();const r=await fetch(API+path,{...init,...(method==='GET'?{cache:'no-store'}:{}),headers:{...ghHeaders(),...(init.headers||{})}});"
+          if s.count(gh_old)!=1: raise SystemExit('gh anchor mismatch')
+          s=s.replace(gh_old,gh_new,1)
+
+          state_old="tab:'概要',loading:false,message:null"
+          state_new="tab:'概要',itemQuery:'',itemKind:'',itemStatus:'',itemPage:1,loading:false,message:null"
+          if s.count(state_old)!=1: raise SystemExit('state anchor mismatch')
+          s=s.replace(state_old,state_new,1)
+
+          render_items_old="""function renderItems(p){return `<section class=\"panel\"><div class=\"items-head\"><div><h3>項目</h3><p class=\"hint\">構成・作業・議論・決定・検証を編集します。</p></div><button id=\"addItem\">＋ 項目追加</button></div>${kinds.map(k=>`<h4>${k} <span class=\"badge\">${p.items.filter(i=>i.kind===k).length}</span></h4>${p.items.filter(i=>i.kind===k).length?p.items.filter(i=>i.kind===k).map(i=>`<div class=\"item-card\"><div class=\"item-row\"><div><h4>${esc(i.title)}</h4><span class=\"badge\">${esc(i.status)}</span>${i.task?.workType?` <span class=\"badge\">${esc(i.task.workType)}</span>`:''}</div><div class=\"inline-actions\"><button data-edit=\"${esc(i.id)}\">編集</button><button class=\"danger\" data-delete=\"${esc(i.id)}\">削除</button></div></div>${i.body?`<p>${esc(i.body)}</p>`:''}</div>`).join(''):'<p class=\"muted\">なし</p>'}`).join('')}</section>`}"""
+          render_items_new="""function renderItems(p){const q=String(state.itemQuery||'').trim().toLowerCase();const kind=state.itemKind||'';const status=state.itemStatus||'';const filtered=p.items.filter(i=>(!q||String(i.id).toLowerCase().includes(q)||String(i.title).toLowerCase().includes(q))&&(!kind||i.kind===kind)&&(!status||i.status===status));const pageSize=20;const pages=Math.max(1,Math.ceil(filtered.length/pageSize));state.itemPage=Math.min(Math.max(1,Number(state.itemPage)||1),pages);const start=(state.itemPage-1)*pageSize;const rows=filtered.slice(start,start+pageSize);const statuses=[...new Set(p.items.map(i=>i.status))].sort((a,b)=>String(a).localeCompare(String(b),'ja'));return `<section class=\"panel item-panel\"><div class=\"items-head\"><div><h3>項目</h3><p class=\"hint\">全${p.items.length}件。検索・絞り込み・20件単位の表示で直接対象へ移動します。</p></div><button id=\"addItem\">＋ 項目追加</button></div><div class=\"item-tools\"><label class=\"field\"><span>ID / タイトル検索</span><input id=\"itemSearch\" value=\"${esc(state.itemQuery||'')}\" placeholder=\"例: TASK-090\" /></label><label class=\"field\"><span>種別</span><select id=\"itemKindFilter\"><option value=\"\">すべて</option>${kinds.map(k=>`<option value=\"${esc(k)}\" ${state.itemKind===k?'selected':''}>${esc(k)}</option>`).join('')}</select></label><label class=\"field\"><span>状態</span><select id=\"itemStatusFilter\"><option value=\"\">すべて</option>${statuses.map(x=>`<option value=\"${esc(x)}\" ${state.itemStatus===x?'selected':''}>${esc(x)}</option>`).join('')}</select></label><button id=\"applyItemFilter\" class=\"primary\">絞り込む</button><button id=\"clearItemFilter\">クリア</button></div><div class=\"item-result-head\"><strong>表示 ${filtered.length?start+1:0}–${Math.min(start+pageSize,filtered.length)} / ${filtered.length}</strong><span class=\"muted\">ページ ${state.itemPage} / ${pages}</span></div>${rows.length?rows.map(i=>`<div class=\"item-card item-card-compact\" data-item-row=\"${esc(i.id)}\"><div class=\"item-row\"><div class=\"item-summary\"><code class=\"item-id\">${esc(i.id)}</code><h4>${esc(i.title)}</h4><div><span class=\"badge\">${esc(i.kind)}</span> <span class=\"badge\">${esc(i.status)}</span>${i.task?.workType?` <span class=\"badge\">${esc(i.task.workType)}</span>`:''}</div></div><div class=\"inline-actions\"><button data-edit=\"${esc(i.id)}\">編集</button><button class=\"danger\" data-delete=\"${esc(i.id)}\">削除</button></div></div></div>`).join(''):'<p class=\"muted\">条件に一致する項目がありません。</p>'}<div class=\"pager\"><button id=\"itemPrev\" ${state.itemPage<=1?'disabled':''}>前へ</button><button id=\"itemNext\" ${state.itemPage>=pages?'disabled':''}>次へ</button></div></section>`}"""
+          if s.count(render_items_old)!=1: raise SystemExit('renderItems anchor mismatch')
+          s=s.replace(render_items_old,render_items_new,1)
+
+          render_main_old="""function renderMain(){if(!state.active)return `<main class=\"main\">${renderNotice()}<div class=\"empty\"><h2>案件を選択してください</h2><p>GitHubの <code>data/projects/*.json</code> を直接保存先として使います。</p></div></main>`;const p=state.active.project;const dirty=isDirty();return `<main class=\"main\"><div class=\"topbar\"><div><h2>${esc(p.name)}</h2><p>案件版 ${state.active.revision||'未保存'} · ${dirty?'未保存の変更あり':'GitHubと同期済み'}</p></div><div class=\"actions\"><button id=\"historyBtn\" ${state.active.revision<1?'disabled':''}>履歴</button><button id=\"backupBtn\">JSON保存</button><button id=\"deleteBtn\" class=\"danger\" ${state.active.revision<1?'disabled':''}>削除</button><button id=\"saveBtn\" class=\"primary\">${state.loading?'処理中…':'GitHubへ保存'}</button></div></div>${renderNotice()}<div class=\"tabs\">${['概要','項目','AI引き継ぎ','高度なJSON'].map(t=>`<button data-tab=\"${t}\" class=\"${state.tab===t?'active':''}\">${t}</button>`).join('')}</div>${state.tab==='概要'?renderOverview(p):state.tab==='項目'?renderItems(p):state.tab==='AI引き継ぎ'?renderAi():renderRaw(p)}</main>`}"""
+          render_main_new="""function renderMain(){if(!state.active)return `<main class=\"main\">${renderNotice()}<div class=\"empty\"><h2>案件を選択してください</h2><p>GitHubの <code>data/projects/*.json</code> を直接保存先として使います。</p></div></main>`;const p=state.active.project;const dirty=isDirty();return `<main class=\"main\"><div class=\"topbar\"><div><h2>${esc(p.name)}</h2><p>案件版 ${state.active.revision||'未保存'} · ${dirty?'未保存の変更あり':'GitHubと同期済み'}</p></div></div><div class=\"workspace-sticky\"><div class=\"actions\"><button id=\"historyBtn\" ${state.active.revision<1?'disabled':''}>履歴</button><button id=\"backupBtn\">JSON保存</button><button id=\"deleteBtn\" class=\"danger\" ${state.active.revision<1?'disabled':''}>削除</button><button id=\"saveBtn\" class=\"primary\">${state.loading?'処理中…':'GitHubへ保存'}</button></div><div class=\"tabs\">${['概要','項目','AI引き継ぎ','高度なJSON'].map(t=>`<button data-tab=\"${t}\" class=\"${state.tab===t?'active':''}\">${t}</button>`).join('')}</div></div>${renderNotice()}${state.tab==='概要'?renderOverview(p):state.tab==='項目'?renderItems(p):state.tab==='AI引き継ぎ'?renderAi():renderRaw(p)}</main>`}"""
+          if s.count(render_main_old)!=1: raise SystemExit('renderMain anchor mismatch')
+          s=s.replace(render_main_old,render_main_new,1)
+
+          bind_old="$('#addItem')&&($('#addItem').onclick=()=>startItemEditor());document.querySelectorAll('[data-edit]')"
+          bind_new="$('#addItem')&&($('#addItem').onclick=()=>startItemEditor());$('#applyItemFilter')&&($('#applyItemFilter').onclick=()=>{state.itemQuery=$('#itemSearch').value;state.itemKind=$('#itemKindFilter').value;state.itemStatus=$('#itemStatusFilter').value;state.itemPage=1;render()});$('#clearItemFilter')&&($('#clearItemFilter').onclick=()=>{state.itemQuery='';state.itemKind='';state.itemStatus='';state.itemPage=1;render()});$('#itemSearch')&&($('#itemSearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#applyItemFilter').click()}});$('#itemKindFilter')&&($('#itemKindFilter').onchange=e=>{state.itemKind=e.target.value;state.itemPage=1;render()});$('#itemStatusFilter')&&($('#itemStatusFilter').onchange=e=>{state.itemStatus=e.target.value;state.itemPage=1;render()});$('#itemPrev')&&($('#itemPrev').onclick=()=>{state.itemPage=Math.max(1,state.itemPage-1);render()});$('#itemNext')&&($('#itemNext').onclick=()=>{state.itemPage=state.itemPage+1;render()});document.querySelectorAll('[data-edit]')"
+          if s.count(bind_old)!=1: raise SystemExit('bind anchor mismatch')
+          s=s.replace(bind_old,bind_new,1)
+
+          p.write_text(s)
+          PY
+          node --check /tmp/app.js
+          grep -q "cache:'no-store'" /tmp/app.js
+          grep -q 'maxVisibleItemRows' static/c04-ui-usability-plan-v2.json || true
+          grep -q 'id="itemSearch"' /tmp/app.js
+          grep -q 'pageSize=20' /tmp/app.js
+          gzip -n -c /tmp/app.js | base64 -w0 > static/app.js.gz.b64
+
+          cat >> static/styles.css <<'CSS'
+          .workspace-sticky{position:sticky;top:0;z-index:12;background:#f3f4f6;padding:8px 0 10px;margin:-4px 0 14px;border-bottom:1px solid #e5e7eb}
+          .workspace-sticky .actions{justify-content:flex-start;margin-bottom:8px}
+          .workspace-sticky .tabs{margin-bottom:0}
+          .item-tools{display:grid;grid-template-columns:minmax(220px,2fr) minmax(130px,1fr) minmax(130px,1fr) auto auto;gap:10px;align-items:end;margin:14px 0}
+          .item-tools button,.pager button{min-height:44px}
+          .item-result-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:12px 0}
+          .item-card-compact{padding:10px 12px;margin:8px 0}
+          .item-card-compact .item-row{align-items:flex-start}
+          .item-summary{min-width:0}
+          .item-summary h4{margin:3px 0 5px;overflow-wrap:anywhere}
+          .item-id{font-size:11px;color:#4b5563}
+          .pager{display:flex;justify-content:space-between;gap:10px;margin-top:14px}
+          @media(max-width:900px){.workspace-sticky{top:0}.workspace-sticky .actions{gap:6px}.workspace-sticky .actions button{min-height:44px}.item-tools{grid-template-columns:1fr}.item-result-head{align-items:flex-start;flex-direction:column}.item-card-compact .item-row{align-items:stretch;flex-direction:column}.item-card-compact .inline-actions button{min-height:44px}.pager button{flex:1}}
+          CSS
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add static/app.js.gz.b64 static/styles.css
+          git diff --cached --check
+          git commit -m 'C-04: repair stale reads and bound item traversal'
+          git push origin HEAD:${{ github.head_ref }}

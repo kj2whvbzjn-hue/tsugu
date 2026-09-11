@@ -5,6 +5,8 @@
     "a03ResultCommit": "8724be951e2925463ce844290d80f856143a42df",
     "projectRevision": null
   },
+  "resultCommit": "5e8957238b87637ee349cb6ba4e4c9d154f01f90",
+  "resultTree": "823a0b639187ab6f90759a67ea1f136b7542be3e",
   "scope": [
     "ArchitectureChangeSet",
     "ValidationRecord",
@@ -37,14 +39,15 @@
   ],
   "verificationEvidence": [
     "core-changeset local contract smoke tests: 6/6 PASS",
-    "node --test tests/core-changeset.test.cjs: pending merge",
-    "Deploy TSUGU: pending merge",
-    "TSUGU ChangeSet E2E: pending merge",
-    "TSUGU Architecture E2E: pending merge",
-    "TSUGU Core Reference E2E: pending merge",
-    "TSUGU E2E: pending merge"
+    "TSUGU ChangeSet E2E run 34558491400: SUCCESS; contract tests and published-module/atomic-GitHub-Apply steps succeeded",
+    "TSUGU Architecture E2E run 34558491432: SUCCESS",
+    "TSUGU Core Reference E2E run 34558491488: SUCCESS",
+    "TSUGU E2E run 34558491416: SUCCESS",
+    "Deploy TSUGU run 34558463411: deploy job 103136070446 SUCCESS",
+    "Pages artifact 10183441033: size=33986, digest=sha256:649d49179256455dd5f82eb69df4045165cd5b809af62894d731ea13efa4d279",
+    "A-04 observation artifact 10183449896: size=443, digest=sha256:ca990a4a4c3c7d06f51a7a8094832b38e73e4b909acdf8f74880d07a23a4abc1"
   ],
-  "status": "IN_PROGRESS",
+  "status": "PASS",
   "nextTask": "A-05",
   "rollbackPlan": "Revert the A-04 result commit. The A-04 production boundary is additive and does not migrate Private project records. Do not restore retired server runtimes. Any failed CAS produces no A-04 aggregate commit."
 }

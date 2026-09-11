@@ -1,0 +1,90 @@
+name: TSUGU Core Reference E2E
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: tsugu-core-reference-e2e
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify Core Reference contracts
+        run: |
+          node --check static/core-reference.js
+          node --test tests/core-reference.test.cjs
+      - name: Verify published Deployment facts
+        env:
+          GH_TOKEN_CORE: ${{ github.token }}
+          DEPLOY_RUN_ID: ${{ github.event.workflow_run.id }}
+          DEPLOYED_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          public_url='https://kj2whvbzjn-hue.github.io/tsugu/core-reference.js'
+          matched=0
+          for i in $(seq 1 12); do
+            curl -fsSL "${public_url}?run=${DEPLOY_RUN_ID:-manual}-${i}" -o /tmp/public-core-reference.js || true
+            if test -s /tmp/public-core-reference.js && cmp -s static/core-reference.js /tmp/public-core-reference.js; then
+              matched=1
+              break
+            fi
+            sleep 5
+          done
+          test "$matched" = 1
+          node --check /tmp/public-core-reference.js
+          node <<'NODE'
+          (async () => {
+            const fs = require('node:fs');
+            const assert = require('node:assert/strict');
+            const core = require('/tmp/public-core-reference.js');
+            const token = process.env.GH_TOKEN_CORE;
+            const authFetch = (url, init = {}) => {
+              const headers = new Headers(init.headers || {});
+              headers.set('Accept', 'application/vnd.github+json');
+              headers.set('Authorization', `Bearer ${token}`);
+              headers.set('X-GitHub-Api-Version', '2022-11-28');
+              headers.set('User-Agent', 'tsugu-core-reference-e2e');
+              return fetch(url, { ...init, headers });
+            };
+            const runId = process.env.DEPLOY_RUN_ID ? Number(process.env.DEPLOY_RUN_ID) : undefined;
+            const deployment = await core.captureCurrentDeployment({
+              fetch: authFetch,
+              repository: 'kj2whvbzjn-hue/tsugu',
+              runId,
+              publicUrl: 'https://kj2whvbzjn-hue.github.io/tsugu/'
+            });
+            assert.equal(deployment.type, 'Deployment');
+            assert.equal(deployment.environment.provider, 'github-pages');
+            assert.equal(deployment.source.repository.fullName, 'kj2whvbzjn-hue/tsugu');
+            assert.match(deployment.source.commitSha, /^[a-f0-9]{40}$/);
+            assert.match(deployment.baseline.treeSha, /^[a-f0-9]{40}$/);
+            assert.match(deployment.artifact.digest, /^sha256:[a-f0-9]{64}$/);
+            assert.match(deployment.configuration.workflowBlobSha, /^[a-f0-9]{40}$/);
+            assert.equal(deployment.configuration.coreReferenceSchemaVersion, 1);
+            assert.equal(deployment.configuration.projectSchemaVersion, 1);
+            if (runId) assert.equal(deployment.workflow.runId, runId);
+            if (process.env.DEPLOYED_SHA) assert.equal(deployment.source.commitSha, process.env.DEPLOYED_SHA);
+            fs.writeFileSync('core-reference-observation.json', JSON.stringify(deployment, null, 2) + '\n');
+            console.log(`DEPLOYMENT FACTS OK run=${deployment.workflow.runId} sha=${deployment.source.commitSha} tree=${deployment.baseline.treeSha} artifact=${deployment.artifact.digest}`);
+          })().catch(error => { console.error(error.stack || error); process.exit(1); });
+          NODE
+      - name: Upload Core Reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsugu-core-reference-observation
+          path: core-reference-observation.json
+          if-no-files-found: ignore

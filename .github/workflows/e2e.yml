@@ -28,6 +28,8 @@ jobs:
       - name: Verify TSUGU create/save/readback
         env:
           GH_TOKEN_E2E: ${{ github.token }}
+          E2E_RUN_ID: ${{ github.run_id }}
+          E2E_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           node <<'NODE'
           (async () => {
@@ -35,7 +37,7 @@ jobs:
             const assert = require('node:assert/strict');
             const owner = 'kj2whvbzjn-hue';
             const repo = 'tsugu';
-            const branch = 'tsugu-data';
+            const branch = `e2e-${process.env.E2E_RUN_ID}-${process.env.E2E_RUN_ATTEMPT}`;
             const token = process.env.GH_TOKEN_E2E;
             const apiHeaders = {
               Accept: 'application/vnd.github+json',
@@ -44,26 +46,31 @@ jobs:
               'User-Agent': 'tsugu-e2e'
             };
 
-            async function api(path, options = {}) {
+            async function api(path, options = {}, allow404 = false) {
               const r = await fetch(`https://api.github.com${path}`, {
                 ...options,
                 headers: { ...apiHeaders, ...(options.headers || {}) }
               });
               const text = await r.text();
-              if (r.status === 404) return null;
+              if (allow404 && r.status === 404) return null;
               if (!r.ok) throw new Error(`GitHub ${r.status}: ${text}`);
               return text ? JSON.parse(text) : null;
             }
             async function projects() {
-              const rows = await api(`/repos/${owner}/${repo}/contents/data/projects?ref=${branch}`);
+              const rows = await api(`/repos/${owner}/${repo}/contents/data/projects?ref=${encodeURIComponent(branch)}`, {}, true);
               return Array.isArray(rows) ? rows.filter(x => x.type === 'file' && x.name.endsWith('.json')) : [];
             }
 
-            const before = await projects();
-            const beforeNames = new Set(before.map(x => x.name));
+            const mainRef = await api(`/repos/${owner}/${repo}/git/ref/heads/main`);
+            await api(`/repos/${owner}/${repo}/git/refs`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: mainRef.object.sha })
+            });
+            console.log(`TEMP BRANCH CREATED ${branch}`);
+
             const browser = await chromium.launch({ headless: true });
             const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-            let created;
             page.on('console', m => console.log(`[browser:${m.type()}] ${m.text()}`));
             page.on('dialog', async d => {
               if (d.type() === 'prompt') {
@@ -116,13 +123,14 @@ jobs:
               await page.getByText(/GitHubへ保存しました。案件版 1/).waitFor({ timeout: 30000 });
               console.log('UI SAVE OK');
 
+              let created;
               for (let i = 0; i < 15 && !created; i++) {
                 const after = await projects();
-                created = after.find(x => !beforeNames.has(x.name));
+                created = after[0];
                 if (!created) await page.waitForTimeout(1000);
               }
-              assert.ok(created, 'No new project JSON found after UI save');
-              const file = await api(`/repos/${owner}/${repo}/contents/${created.path}?ref=${branch}`);
+              assert.ok(created, 'No project JSON found after UI save');
+              const file = await api(`/repos/${owner}/${repo}/contents/${created.path}?ref=${encodeURIComponent(branch)}`);
               const record = JSON.parse(Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf8'));
               assert.equal(record.storageVersion, 1);
               assert.equal(record.project.schemaVersion, 1);
@@ -132,15 +140,9 @@ jobs:
               console.log(`READBACK OK ${created.path} revision=${record.revision}`);
               await page.screenshot({ path: 'tsugu-e2e-success.png', fullPage: true });
             } finally {
-              if (created) {
-                await api(`/repos/${owner}/${repo}/contents/${created.path}`, {
-                  method: 'DELETE',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ message: 'E2E cleanup', sha: created.sha, branch })
-                });
-                console.log('CLEANUP OK');
-              }
               await browser.close();
+              await api(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'DELETE' });
+              console.log(`TEMP BRANCH DELETED ${branch}`);
             }
           })().catch(e => { console.error(e.stack || e); process.exit(1); });
           NODE

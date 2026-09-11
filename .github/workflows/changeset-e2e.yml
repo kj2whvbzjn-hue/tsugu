@@ -87,25 +87,44 @@ jobs:
               });
               const v1 = ChangeSet.validateChangeSet(aggregate, baseBlobSha, first, { now: '2026-09-11T00:00:00Z' });
               const v2 = ChangeSet.validateChangeSet(aggregate, baseBlobSha, second, { now: '2026-09-11T00:00:00Z' });
-              const applied = await ChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: first, validationRecord: v1.validationRecord, actor: owner, now: '2026-09-11T00:01:00Z' });
-              assert.equal(applied.status, 'APPLIED');
-              assert.equal(applied.revision, 2);
 
-              let stale = null;
-              try {
-                await ChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: second, validationRecord: v2.validationRecord, actor: owner, now: '2026-09-11T00:02:00Z' });
-              } catch (e) { stale = e; }
-              assert.equal(stale && stale.code, 'STALE_CHANGESET');
+              const applyArgs = (changeSet, validationRecord, minute) => ({
+                fetch, owner, repo, branch, path, token, changeSet, validationRecord,
+                actor: owner, now: `2026-09-11T00:${minute}:00Z`
+              });
+              const races = await Promise.allSettled([
+                ChangeSet.applyWithContentApi(applyArgs(first, v1.validationRecord, '01')),
+                ChangeSet.applyWithContentApi(applyArgs(second, v2.validationRecord, '01'))
+              ]);
+              const fulfilled = races.map((r, i) => ({ r, i })).filter(x => x.r.status === 'fulfilled');
+              const rejected = races.map((r, i) => ({ r, i })).filter(x => x.r.status === 'rejected');
+              assert.equal(fulfilled.length, 1, 'exactly one concurrent Apply must succeed');
+              assert.equal(rejected.length, 1, 'exactly one concurrent Apply must fail');
+              assert.equal(fulfilled[0].r.value.status, 'APPLIED');
+              assert.equal(rejected[0].r.reason && rejected[0].r.reason.code, 'STALE_CHANGESET');
+
+              const candidates = [first, second];
+              const validations = [v1.validationRecord, v2.validationRecord];
+              const winnerIndex = fulfilled[0].i;
+              const loserIndex = rejected[0].i;
+              const winner = candidates[winnerIndex];
+              const winnerValidation = validations[winnerIndex];
+              const applied = fulfilled[0].r.value;
+              assert.equal(applied.revision, 2);
 
               const file = await api(`/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`);
               const stored = ChangeSet.validateAggregate(JSON.parse(Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf8')));
               assert.equal(stored.revision, 2);
-              assert.deepEqual(stored.architecture.architectureNodes.map(x => x.id), ['node:first']);
+              assert.deepEqual(stored.architecture.architectureNodes.map(x => x.id), [winnerIndex === 0 ? 'node:first' : 'node:second']);
               assert.equal(stored.appliedChangeSets.length, 1);
               assert.equal(stored.auditEvents.length, 1);
               assert.equal(stored.outbox.length, 1);
+              assert.equal(stored.appliedChangeSets[0].changeSetId, winner.id);
 
-              const replay = await ChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: first, validationRecord: v1.validationRecord, actor: owner, now: '2026-09-11T00:03:00Z' });
+              const replay = await ChangeSet.applyWithContentApi({
+                fetch, owner, repo, branch, path, token, changeSet: winner, validationRecord: winnerValidation,
+                actor: owner, now: '2026-09-11T00:03:00Z'
+              });
               assert.equal(replay.status, 'IDEMPOTENT_REPLAY');
               const afterReplay = await api(`/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`);
               const current = ChangeSet.validateAggregate(JSON.parse(Buffer.from(afterReplay.content.replace(/\n/g, ''), 'base64').toString('utf8')));
@@ -114,22 +133,25 @@ jobs:
               assert.equal(current.outbox.length, 1);
 
               const reused = ChangeSet.createChangeSet({
-                id: 'changeset:a04:e2e:reused', projectId: current.projectId, idempotencyKey: first.idempotencyKey,
+                id: 'changeset:a04:e2e:reused', projectId: current.projectId, idempotencyKey: winner.idempotencyKey,
                 baseRevision: current.revision, baseBlobSha: afterReplay.sha, createdBy: owner,
                 operations: [{ type: 'ADD_NODE', id: 'node:other', name: 'Other' }], preconditions: []
               });
-              const fakeValidation = { ...v1.validationRecord, changeSetId: reused.id, payloadHash: reused.payloadHash, baseRevision: reused.baseRevision, baseBlobSha: reused.baseBlobSha };
               let keyReuse = null;
               try {
-                await ChangeSet.applyWithContentApi({ fetch, owner, repo, branch, path, token, changeSet: reused, validationRecord: fakeValidation, actor: owner, now: '2026-09-11T00:04:00Z' });
+                await ChangeSet.applyWithContentApi({
+                  fetch, owner, repo, branch, path, token, changeSet: reused, validationRecord: winnerValidation,
+                  actor: owner, now: '2026-09-11T00:04:00Z'
+                });
               } catch (e) { keyReuse = e; }
               assert.equal(keyReuse && keyReuse.code, 'IDEMPOTENCY_KEY_REUSED');
 
               const observation = {
                 sourceSha, branch, path, appliedCommitSha: applied.commitSha, appliedBlobSha: applied.blobSha,
                 finalRevision: current.revision, nodeIds: current.architecture.architectureNodes.map(x => x.id),
+                winnerChangeSetId: winner.id, loserChangeSetId: candidates[loserIndex].id,
                 appliedChangeSets: current.appliedChangeSets.length, auditEvents: current.auditEvents.length, outbox: current.outbox.length,
-                staleRejected: true, idempotentReplay: true, idempotencyReuseRejected: true
+                concurrentOneWinner: true, staleRejected: true, idempotentReplay: true, idempotencyReuseRejected: true
               };
               require('node:fs').writeFileSync('a04-observation.json', JSON.stringify(observation, null, 2));
               console.log(JSON.stringify(observation));

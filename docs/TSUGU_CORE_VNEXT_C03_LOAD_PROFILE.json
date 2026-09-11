@@ -1,0 +1,11 @@
+{
+  "id": "c03-engineering-probe-2026-09-12",
+  "approved": false,
+  "source": "Engineering probe only. GitHub connector cannot read private kj2whvbzjn-hue/tsugu-data (404), so operational record counts and human-agreed acceptance thresholds are not available in the current execution context.",
+  "integrationRecords": 250,
+  "missedCommits": 100,
+  "recalculationItems": 200,
+  "maxSyncMs": null,
+  "maxRecalculationMs": null,
+  "approvalRef": null
+}

@@ -1,0 +1,40 @@
+name: C-04 v4 Apply Structure UI Patch
+
+on:
+  push:
+    branches: [c04-v4-core-structure-navigation-20260912]
+    paths:
+      - 'tools/c04_v4_structure_patch.py'
+      - '.github/workflows/c04-v4-apply-structure-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: c04-v4-core-structure-navigation-20260912
+          fetch-depth: 0
+      - name: Apply structural UI patch
+        run: |
+          set -euo pipefail
+          python3 tools/c04_v4_structure_patch.py
+          node --check /tmp/c04-v4-app.js
+          grep -q 'C04_STRUCTURE_UI_V4' /tmp/c04-v4-app.js
+          grep -q 'function renderStructureMap' /tmp/c04-v4-app.js
+          grep -q 'function renderDependencyTab' /tmp/c04-v4-app.js
+      - name: Commit patched application
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- static/app.js.gz.b64; then
+            echo 'No app patch needed'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add static/app.js.gz.b64
+          git commit -m 'feat: rebuild UI around Architecture and WorkBox structure'
+          git push origin HEAD:c04-v4-core-structure-navigation-20260912

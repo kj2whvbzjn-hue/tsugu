@@ -25,7 +25,7 @@ const reasonText='理由・根拠を全画面で読解・編集できること�
 const project={schemaVersion:1,id:'77777777-8888-4999-8aaa-bbbbbbbbbbbb',name:'長文全画面編集E2E',purpose:'長文欄の全画面編集を検証する',rules:'既存C-04基準は変更しない',focus:'本文と理由・根拠',baseline:'user-feedback-2026-09-12',changeControlEnabled:true,next:'全画面編集後に元モーダルへ戻る',stage:'検討',implementationApproved:false,completionApproved:false,core:emptyCore(),items:[{id:'LT-001',kind:'構成',title:'長文全画面編集',body:bodyText,status:'未着手',parentId:'',reason:reasonText}]};
 const evidence={type:'TSUGULongTextFullscreenEvidence',runId,runAttempt,targetUrl,tempBranch,status:'RUNNING',viewport:{width:390,height:844},fields:{},runtime:{pageErrors:[]}};
 function writeEvidence(){fs.writeFileSync('longtext-fullscreen-evidence.json',JSON.stringify(evidence,null,2)+'\n')}
-async function workspaceAction(page,name){const button=page.getByRole('button',{name,exact:true});if(!(await button.isVisible().catch(()=>false))){await page.getByRole('button',{name:'接続・取込メニュー',exact:true}).click();await button.waitFor({state:'visible',timeout:5000})}return button}
+async function workspaceAction(page,name){const button=page.getByRole('button',{name,exact:true});if(await button.isVisible().catch(()=>false))return button;await page.getByRole('button',{name:'接続・取込メニュー',exact:true}).click();const item=page.getByRole('menuitem',{name,exact:true});await item.waitFor({state:'visible',timeout:5000});return item}
 
 (async()=>{
   const mainRef=await api(`/repos/${owner}/${repo}/git/ref/heads/main`);

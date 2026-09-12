@@ -1,0 +1,54 @@
+name: TSUGU C-04 UI Usability v3 Baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - c04-v3-decision-ui-baseline-20260912
+    paths:
+      - static/c04-ui-usability-plan-v3.json
+      - tests/c04-ui-usability-v3-baseline.e2e.cjs
+      - .github/workflows/c04-ui-usability-v3-baseline.yml
+
+permissions:
+  contents: write
+
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify frozen plan was registered before execution
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const p=JSON.parse(fs.readFileSync('static/c04-ui-usability-plan-v3.json','utf8'));
+          if(p.version!==3||p.status!=='FROZEN_BEFORE_BASELINE_MEASUREMENT') throw new Error('v3 plan is not frozen');
+          console.log('C04_V3_PLAN_FROZEN', p.title, p.registeredAt);
+          NODE
+      - name: Install Playwright
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Measure current published UI against frozen v3 criteria
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          C04_TARGET_URL: https://kj2whvbzjn-hue.github.io/tsugu/
+        run: node tests/c04-ui-usability-v3-baseline.e2e.cjs
+      - name: Re-run existing C-04 v2 budgets as regression measurement
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          C04_TARGET_URL: https://kj2whvbzjn-hue.github.io/tsugu/
+        run: node tests/c04-ui-usability-v2.e2e.cjs
+      - name: Upload v3 baseline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c04-ui-v3-baseline-evidence-${{ github.run_id }}
+          path: |
+            c04-ui-usability-v3-baseline-evidence.json
+            c04-ui-usability-v2-evidence.json
+            c04-v3-baseline-workspace-mobile.png
+          if-no-files-found: ignore

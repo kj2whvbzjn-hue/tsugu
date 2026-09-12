@@ -2,24 +2,35 @@ import http from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {createApiService} from './api-v1.mjs';
 import {authorize,permissionForRequest} from './security.mjs';
+import {authorizeProject} from './project-access.mjs';
 import {createAuditOutboxStore} from './audit-outbox.mjs';
 import {createIdempotencyStore} from './idempotency.mjs';
 
 async function readJson(req){const chunks=[];for await(const c of req)chunks.push(c);if(!chunks.length)return{};const text=Buffer.concat(chunks).toString('utf8');return text?JSON.parse(text):{}}
 function send(res,status,headers,body){res.writeHead(status,{'content-type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(body))}
+function resolveProjectId(api,path){
+  const parts=path.split('/').filter(Boolean),p=parts.slice(2);if(parts[0]!=='api'||parts[1]!=='v1')return null;
+  if(p[0]==='projects'&&p[1])return p[1];
+  const projects=api?.projects;if(!projects?.values)return null;
+  if(p[0]==='artifacts'&&p[1])for(const project of projects.values())if(project.artifacts?.some(x=>x.id===p[1]))return project.id;
+  if(p[0]==='change-sets'&&p[1])for(const project of projects.values())if(project.changeSets?.some(x=>x.id===p[1]))return project.id;
+  if(p[0]==='ai-candidates'&&p[1])for(const project of projects.values())if(project.aiCandidates?.some(x=>x.id===p[1]))return project.id;
+  return null;
+}
 
-export function createHttpGateway({api=createApiService(),verifyBearer,auditOutbox=createAuditOutboxStore(),idempotency=createIdempotencyStore()}={}){
+export function createHttpGateway({api=createApiService(),verifyBearer,auditOutbox=createAuditOutboxStore(),idempotency=createIdempotencyStore(),projectAccessRepository=null}={}){
   if(!verifyBearer)throw new Error('verifyBearer is required');
   const handler=async(req,res)=>{
     const requestId=req.headers['x-request-id']||randomUUID(),url=new URL(req.url,'http://local'),method=(req.method||'GET').toUpperCase();
     let principal=null,body={};
     try{
       principal=await verifyBearer(req.headers.authorization);
-      authorize(principal,permissionForRequest(method,url.pathname));
+      const permission=permissionForRequest(method,url.pathname);authorize(principal,permission);
+      const projectId=resolveProjectId(api,url.pathname);if(projectAccessRepository&&projectId)await authorizeProject({principal,projectId,permission,accessRepository:projectAccessRepository});
       if(method!=='GET'&&method!=='HEAD')body=await readJson(req);
       const idem=idempotency.appliesTo(method,url.pathname)?idempotency.lookup({principal,method,path:url.pathname,key:req.headers['idempotency-key'],body}):null;
       if(idem?.hit){const cached=idem.response;await auditOutbox.record({principal,method,path:url.pathname,status:cached.status,requestId,body,replayed:true});send(res,cached.status,{'x-request-id':requestId,'idempotency-replayed':'true',...cached.headers},cached.body);return}
-      const response=await api.handle({method,url:url.pathname+url.search,body,headers:{...req.headers,'x-user-id':principal.userId,'x-request-id':requestId}});
+      const response=await api.handle({method,url:url.pathname+url.search,body,headers:{...req.headers,'x-user-id':principal.userId,'x-request-id':requestId,'x-project-id':projectId||''}});
       if(idem&&!idem.hit&&req.headers['idempotency-key']&&response.status>=200&&response.status<300)idempotency.store({scope:idem.scope,fingerprint:idem.fingerprint,response});
       if(response.headers?.['x-transactional-audit']!=='true')await auditOutbox.record({principal,method,path:url.pathname,status:response.status,requestId,body});
       send(res,response.status,{'x-request-id':requestId,...response.headers},response.body);
@@ -29,5 +40,5 @@ export function createHttpGateway({api=createApiService(),verifyBearer,auditOutb
       send(res,status,{'x-request-id':requestId},problem);
     }
   };
-  return {handler,api,auditOutbox,idempotency,listen(port=4180,host='127.0.0.1'){const server=http.createServer(handler);return new Promise(resolve=>server.listen(port,host,()=>resolve(server)))}};
+  return {handler,api,auditOutbox,idempotency,projectAccessRepository,listen(port=4180,host='127.0.0.1'){const server=http.createServer(handler);return new Promise(resolve=>server.listen(port,host,()=>resolve(server)))}};
 }

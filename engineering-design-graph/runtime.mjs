@@ -32,7 +32,6 @@ export class PooledOutboxStore{
   markPublished(id){return this.withStore(store=>store.markPublished(id))}
   markFailed(id,error,options){return this.withStore(store=>store.markFailed(id,error,options))}
 }
-}
 
 export async function createEngineeringDesignRuntime({pool,verifyBearer,seed=[],logger=createStructuredLogger(),metrics=createMetrics(),rateLimiter=createRateLimiter()}={}){
   if(!pool?.connect)throw new Error('Postgres pool with connect() is required');if(!verifyBearer)throw new Error('verifyBearer is required');

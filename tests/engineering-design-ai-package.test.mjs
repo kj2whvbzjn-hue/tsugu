@@ -4,34 +4,9 @@ import {makeSampleProject,previewChangeSet} from '../engineering-design-graph/co
 import {acceptAICandidate,createLocalDemoProvider,requestAICandidates,rejectAICandidate} from '../engineering-design-graph/ai-engine.mjs';
 import {createImplementationPackageArchive} from '../engineering-design-graph/package-archive.mjs';
 
-test('AI candidate cannot directly mutate current artifact',async()=>{
-  const p=makeSampleProject(),req=p.artifacts.find(a=>a.type==='requirement'),before=structuredClone(req.payload);
-  const {candidates}=await requestAICandidates(p,{role:'requirement_reviewer',targetArtifactId:req.id,provider:createLocalDemoProvider()});
-  assert.equal(candidates.length,1);assert.deepEqual(req.payload,before);assert.equal(candidates[0].status,'pending');
-});
-
-test('accepting AI candidate stages ChangeSet for preview',async()=>{
-  const p=makeSampleProject(),req=p.artifacts.find(a=>a.type==='requirement');
-  const {candidates}=await requestAICandidates(p,{role:'requirement_reviewer',targetArtifactId:req.id,provider:createLocalDemoProvider()});
-  const {changeSet}=acceptAICandidate(p,candidates[0].id);
-  assert.equal(changeSet.items.length,1);assert.equal(changeSet.items[0].kind,'update_artifact');
-  const preview=previewChangeSet(p,changeSet.id);assert.ok(preview.staged.artifacts.find(a=>a.id===req.id).payload.reviewNote);
-});
-
-test('AI candidate can be rejected without ChangeSet',async()=>{
-  const p=makeSampleProject();
-  const {candidates}=await requestAICandidates(p,{role:'task_planner',provider:createLocalDemoProvider()});
-  rejectAICandidate(p,candidates[0].id,{reason:'not needed'});assert.equal(candidates[0].status,'rejected');assert.equal(p.changeSets.length,0);
-});
-
-test('Known AI claim without source is rejected',async()=>{
-  const p=makeSampleProject(),provider={async generateStructured(){return{candidates:[{operation:'create',proposedType:'task',knowledgeState:'known',proposedPayload:{}}]}}};
-  await assert.rejects(()=>requestAICandidates(p,{role:'task_planner',provider}),/requires source evidence/);
-});
-
-test('implementation package creates real ZIP with SHA-256 manifest',async()=>{
-  const p=makeSampleProject(),task=p.artifacts.find(a=>a.type==='task');
-  const out=await createImplementationPackageArchive(p,[task.id]);
-  assert.equal(out.zip[0],0x50);assert.equal(out.zip[1],0x4b);assert.match(out.manifest.hash,/^sha256:[0-9a-f]{64}$/);assert.match(out.archiveHash,/^sha256:[0-9a-f]{64}$/);
-  assert.ok(out.entries.includes('manifest.json'));assert.ok(out.entries.includes(`tasks/${task.key}.json`));assert.ok(out.entries.includes('coding-context.md'));
-});
+test('AI candidate cannot directly mutate current artifact',async()=>{const p=makeSampleProject(),req=p.artifacts.find(a=>a.type==='requirement'),before=structuredClone(req.payload);const {candidates}=await requestAICandidates(p,{role:'requirement_reviewer',targetArtifactId:req.id,provider:createLocalDemoProvider()});assert.equal(candidates.length,1);assert.deepEqual(req.payload,before);assert.equal(candidates[0].status,'pending')});
+test('accepting AI candidate stages ChangeSet for preview',async()=>{const p=makeSampleProject(),req=p.artifacts.find(a=>a.type==='requirement');const {candidates}=await requestAICandidates(p,{role:'requirement_reviewer',targetArtifactId:req.id,provider:createLocalDemoProvider()});const {changeSet}=acceptAICandidate(p,candidates[0].id);assert.equal(changeSet.items.length,1);assert.equal(changeSet.items[0].kind,'update_artifact');const preview=previewChangeSet(p,changeSet.id);assert.ok(preview.staged.artifacts.find(a=>a.id===req.id).payload.reviewNote)});
+test('AI candidate can be rejected without ChangeSet',async()=>{const p=makeSampleProject();const {candidates}=await requestAICandidates(p,{role:'task_planner',provider:createLocalDemoProvider()});rejectAICandidate(p,candidates[0].id,{reason:'not needed'});assert.equal(candidates[0].status,'rejected');assert.equal(p.changeSets.length,0)});
+test('Known AI claim without source is rejected',async()=>{const p=makeSampleProject(),provider={async generateStructured(){return{candidates:[{operation:'create',proposedType:'task',knowledgeState:'known',proposedPayload:{}}]}}};await assert.rejects(()=>requestAICandidates(p,{role:'task_planner',provider}),/requires source evidence/)});
+test('AI request blocks detected secrets when sensitive transmission is disabled',async()=>{const p=makeSampleProject();let called=false,provider={async generateStructured(){called=true;return{candidates:[]}}};await assert.rejects(()=>requestAICandidates(p,{role:'task_planner',input:'api_key=supersecretvalue123',provider}),e=>e.code==='AI_SENSITIVE_DATA_BLOCKED');assert.equal(called,false)});
+test('implementation package creates real ZIP with SHA-256 manifest',async()=>{const p=makeSampleProject(),task=p.artifacts.find(a=>a.type==='task');const out=await createImplementationPackageArchive(p,[task.id]);assert.equal(out.zip[0],0x50);assert.equal(out.zip[1],0x4b);assert.match(out.manifest.hash,/^sha256:[0-9a-f]{64}$/);assert.match(out.archiveHash,/^sha256:[0-9a-f]{64}$/);assert.ok(out.entries.includes('manifest.json'));assert.ok(out.entries.includes(`tasks/${task.key}.json`));assert.ok(out.entries.includes('coding-context.md'))});

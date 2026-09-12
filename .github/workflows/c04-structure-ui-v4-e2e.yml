@@ -1,0 +1,142 @@
+name: TSUGU C-04 Structure UI v4 E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'static/app.js.gz.b64'
+      - 'static/index.html'
+      - 'static/structure-v4.css'
+      - 'static/c04-structure-ui-plan-v4.json'
+      - 'tests/c04-structure-ui-v4.e2e.cjs'
+      - 'tests/longtext-fullscreen.e2e.cjs'
+      - '.github/workflows/c04-structure-ui-v4-e2e.yml'
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-c04-v4-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  acceptance:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - name: Verify frozen v4 plan and candidate source
+        run: |
+          set -euo pipefail
+          node -e "const p=require('./static/c04-structure-ui-plan-v4.json');if(p.planVersion!==4||p.status!=='FROZEN_BEFORE_IMPLEMENTATION'||p.acceptance.length!==10)process.exit(1)"
+          node --check tests/c04-structure-ui-v4.e2e.cjs
+          node --check tests/longtext-fullscreen.e2e.cjs
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-v4-app.js
+          node --check /tmp/c04-v4-app.js
+          node --input-type=module --check < /tmp/c04-v4-app.js
+          grep -q 'C04_STRUCTURE_UI_V4' /tmp/c04-v4-app.js
+          grep -q 'function renderStructureMap' /tmp/c04-v4-app.js
+          grep -q 'function renderBoxTab' /tmp/c04-v4-app.js
+          grep -q 'function renderTestTab' /tmp/c04-v4-app.js
+          grep -q 'function renderDependencyTab' /tmp/c04-v4-app.js
+          grep -q 'function coreEdges' /tmp/c04-v4-app.js
+          grep -q 'structure-v4.css?v=c04-v4' static/index.html
+          grep -q 'app.js?v=c04-v4' static/index.html
+      - name: Build candidate Pages site
+        if: ${{ github.event_name != 'workflow_run' }}
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -a static/. _site/
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
+          rm -f _site/app.js.gz.b64
+          node --check _site/app.js
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start candidate server
+        if: ${{ github.event_name != 'workflow_run' }}
+        run: |
+          python3 -m http.server 4173 --directory _site >/tmp/c04-v4-http.log 2>&1 &
+          echo $! > /tmp/c04-v4-server.pid
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/c04-v4-http.log
+          exit 1
+      - name: Execute frozen v4 structure acceptance
+        id: v4
+        continue-on-error: true
+        env:
+          C04_TARGET_URL: ${{ github.event_name == 'workflow_run' && 'https://kj2whvbzjn-hue.github.io/tsugu/' || 'http://127.0.0.1:4173/' }}
+        run: node tests/c04-structure-ui-v4.e2e.cjs
+      - name: Execute Core vNext contract regressions
+        id: core
+        continue-on-error: true
+        run: |
+          node --test \
+            tests/core-architecture.test.cjs \
+            tests/core-box.test.cjs \
+            tests/core-rule-test.test.cjs \
+            tests/core-governance.test.cjs \
+            tests/core-assurance-event.test.cjs
+      - name: Execute long-text fullscreen regression
+        id: longtext
+        continue-on-error: true
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          C04_TARGET_URL: ${{ github.event_name == 'workflow_run' && 'https://kj2whvbzjn-hue.github.io/tsugu/' || 'http://127.0.0.1:4173/' }}
+        run: node tests/longtext-fullscreen.e2e.cjs
+      - name: Finalize C-04 v4 acceptance
+        if: always()
+        env:
+          V4_OUTCOME: ${{ steps.v4.outcome }}
+          CORE_OUTCOME: ${{ steps.core.outcome }}
+          LONGTEXT_OUTCOME: ${{ steps.longtext.outcome }}
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const read=p=>fs.existsSync(p)?JSON.parse(fs.readFileSync(p,'utf8')):null;
+          const v4=read('c04-structure-ui-v4-evidence.json');
+          const lt=read('longtext-fullscreen-evidence.json');
+          const final={
+            type:'TSUGUC04StructureUIV4FinalEvidence',
+            status:'FAIL',
+            sourceSha:process.env.GITHUB_SHA||'',
+            target:process.env.GITHUB_EVENT_NAME==='workflow_run'?'published':'candidate',
+            v4:v4?.status||'MISSING',
+            core:process.env.CORE_OUTCOME,
+            longtext:lt?.status||process.env.LONGTEXT_OUTCOME,
+            scenarios:v4?.scenarios||{},runtime:v4?.runtime||null,metrics:v4?.metrics||null
+          };
+          const v4ok=v4?.status==='PASS_UI4_01_TO_10_UI_RUNTIME'&&process.env.V4_OUTCOME==='success';
+          const coreok=process.env.CORE_OUTCOME==='success';
+          const longok=lt?.status==='PASS'&&process.env.LONGTEXT_OUTCOME==='success';
+          if(v4ok&&coreok&&longok){
+            final.status='PASS';
+            final.scenarios['UI4-10']={status:'PASS',metrics:{uiRuntime:'PASS',coreContracts:'PASS',longtext:'PASS'}};
+          }
+          fs.writeFileSync('c04-structure-ui-v4-final-evidence.json',JSON.stringify(final,null,2)+'\n');
+          console.log('C04_V4_FINAL',JSON.stringify(final));
+          if(final.status!=='PASS')process.exit(1);
+          NODE
+      - name: Upload C-04 v4 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c04-structure-ui-v4-evidence-${{ github.run_id }}
+          path: |
+            c04-structure-ui-v4-evidence.json
+            c04-structure-ui-v4-final-evidence.json
+            c04-structure-ui-v4-mobile.png
+            longtext-fullscreen-evidence.json
+            longtext-fullscreen-mobile.png
+          if-no-files-found: ignore

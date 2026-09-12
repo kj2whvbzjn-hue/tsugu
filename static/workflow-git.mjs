@@ -37,7 +37,15 @@ export class GitStore {
   async list(){
     const rows=await this.file(ROOT);if(rows===null)return [];
     assert(Array.isArray(rows),'案件ディレクトリの応答が不正です');
-    return rows.filter(x=>x.type==='file'&&x.name.endsWith('.json')).map(x=>({id:x.name.slice(0,-5),path:x.path,name:x.name}));
+    const files=rows.filter(x=>x.type==='file'&&x.name.endsWith('.json')),out=[];
+    for(let offset=0;offset<files.length;offset+=6){
+      const batch=await Promise.all(files.slice(offset,offset+6).map(async x=>{
+        const row={id:x.name.slice(0,-5),path:x.path,name:x.name};
+        try{const loaded=await this.open(row.id);return {...row,title:loaded.project.workspace.name};}
+        catch(e){return {...row,title:`読込不可: ${x.name}`,error:e.message};}
+      }));out.push(...batch);
+    }
+    return out.sort((a,b)=>(a.title||a.id).localeCompare(b.title||b.id,'ja'));
   }
   async open(projectId){
     assert(/^[A-Za-z0-9._-]+$/.test(projectId),'案件IDが不正です');const path=`${ROOT}/${projectId}.json`,file=await this.file(path);assert(file,'案件が見つかりません');

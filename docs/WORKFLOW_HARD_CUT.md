@@ -61,3 +61,7 @@ Task作成にはWorkBox、WorkBoxにはArchitectureが必要。作業対象の�
 `tests/workflow-ui.e2e.cjs` は390pxのブラウザで案件作成・構成・Task・開始承認・Task承認・FAIL・再確認・Task完了・最終承認・Git保存・reloadを操作する。Git APIは状態を保持するfixtureで検証し、画像と結果をActions artifactへ保存する。
 
 ローカル環境では契約テストと成果物構築を実行した。Chromium取得はネットワークtimeoutのため未完了であり、ブラウザ検証はGitHub Actionsの結果で別途確認する。CI未実行／失敗をPASS扱いにしない。公開環境での実測はDeployment後に区別して記録する。
+
+## CI実測（2026-09-12）
+
+PR #32のhead `bc82a768842defa0ede7d3747469332b6ddadb78` に対する [Actions run 34696873289](https://github.com/kj2whvbzjn-hue/tsugu/actions/runs/34696873289) が成功した。契約テスト24件、成果物の旧依存排除、Chromiumの作成から完了・保存・reloadまでの通し検証が合格。モバイル／デスクトップ画像は同runのartifactに記録。これはGitHub API fixtureでの受入であり、公開後の実データ書込み実測ではない。

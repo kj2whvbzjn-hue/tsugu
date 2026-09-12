@@ -24,7 +24,7 @@ CREATE TABLE artifacts (
   knowledge_state knowledge_state NOT NULL DEFAULT 'known',
   current_version int NOT NULL DEFAULT 1,
   current_version_id uuid,
-  owner_user_id uuid,
+  owner_user_id text,
   tags text[] NOT NULL DEFAULT '{}',
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   revision bigint NOT NULL DEFAULT 0,
@@ -45,7 +45,7 @@ CREATE TABLE artifact_versions (
   payload jsonb NOT NULL,
   knowledge_annotations jsonb NOT NULL DEFAULT '[]'::jsonb,
   change_set_id uuid,
-  created_by uuid,
+  created_by text,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(artifact_id, version)
 );
@@ -76,7 +76,7 @@ CREATE TABLE change_sets (
   description text,
   status text NOT NULL DEFAULT 'open',
   base_revision bigint NOT NULL,
-  actor_user_id uuid,
+  actor_user_id text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -128,7 +128,7 @@ CREATE TABLE reviews (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   artifact_id uuid REFERENCES artifacts(id) ON DELETE CASCADE,
   change_set_id uuid REFERENCES change_sets(id) ON DELETE CASCADE,
-  reviewer_user_id uuid NOT NULL,
+  reviewer_user_id text NOT NULL,
   state text NOT NULL,
   comment text,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -151,7 +151,7 @@ CREATE TABLE readiness_snapshots (
 CREATE TABLE audit_logs (
   id bigserial PRIMARY KEY,
   project_id uuid,
-  actor_user_id uuid,
+  actor_user_id text,
   action text NOT NULL,
   target_type text NOT NULL,
   target_id text,

@@ -53,7 +53,6 @@ async function runViewport(browser, name, viewport) {
   await expectText(page, '#main h1', 'Implementation Readiness');
   assert.match(await page.locator('.readiness strong').innerText(), /READY|NOT_READY/);
 
-  // AI must only create a candidate; Accept stages a ChangeSet rather than mutating current state directly.
   await page.goto(new URL('ai.html', BASE).href, { waitUntil: 'networkidle' });
   await expectText(page, '#aiMain h1', 'AI Candidate Review');
   await page.locator('#generate').click();
@@ -63,7 +62,7 @@ async function runViewport(browser, name, viewport) {
   assert.equal(reqBeforeAccept.payload.reviewNote, undefined, `${name}: candidate generation must not mutate current artifact`);
   await page.screenshot({ path: path.join(OUT, `${name}-03-ai-candidate.png`), fullPage: true });
   await page.locator('[data-accept]').click();
-  await expectText(page, '#aiMain', '0 pending candidates');
+  await expectText(page, '#aiMain', 'No pending candidates');
   const storedAfterAccept = await page.evaluate(() => JSON.parse(localStorage.getItem('engineering-design-graph-project-v2')));
   assert.equal(storedAfterAccept.changeSets.filter(c => c.status === 'open').length, 1, `${name}: accepting AI candidate should stage an open ChangeSet`);
 

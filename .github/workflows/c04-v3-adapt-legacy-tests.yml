@@ -1,0 +1,28 @@
+name: C04 v3 adapt legacy tests
+
+on:
+  push:
+    branches:
+      - c04-v3-decision-ui-implementation-20260912
+    paths:
+      - .github/workflows/c04-v3-adapt-legacy-tests.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  adapt:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - run: python tools/c04_v3_test_harness_patch.py
+      - run: |
+          node --check tests/c04-ui-usability-v2.e2e.cjs
+          node --check tests/longtext-fullscreen.e2e.cjs
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/c04-ui-usability-v2.e2e.cjs tests/longtext-fullscreen.e2e.cjs
+          git commit -m "test: adapt legacy UI E2E to overflow menu"
+          git push origin HEAD:c04-v3-decision-ui-implementation-20260912

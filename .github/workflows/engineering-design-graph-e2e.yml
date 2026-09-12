@@ -75,6 +75,17 @@ jobs:
         run: npm install --no-save --package-lock=false pg@8.16.3
       - name: Run pooled runtime against real PostgreSQL
         run: node tests/engineering-design-postgres.integration.mjs
+      - name: Verify PostgreSQL backup and restore drill
+        run: |
+          ORIGINAL_PROJECTS="$(psql -Atc 'select count(*) from projects')"
+          ORIGINAL_VERSIONS="$(psql -Atc 'select count(*) from artifact_versions')"
+          pg_dump --format=custom --no-owner --no-acl --file=/tmp/edg.dump edg
+          sha256sum /tmp/edg.dump > /tmp/edg.dump.sha256
+          createdb edg_restore
+          pg_restore --no-owner --no-acl --dbname=edg_restore /tmp/edg.dump
+          test "$(psql -d edg_restore -Atc 'select count(*) from projects')" = "$ORIGINAL_PROJECTS"
+          test "$(psql -d edg_restore -Atc 'select count(*) from artifact_versions')" = "$ORIGINAL_VERSIONS"
+          test "$(psql -d edg_restore -Atc "select count(*) from information_schema.tables where table_schema='public'")" -ge 14
       - name: Install Playwright Chromium
         run: |
           npm install --no-save --package-lock=false playwright@1.55.0
@@ -98,4 +109,5 @@ jobs:
           path: |
             outputs/engineering-design-graph/
             /tmp/engineering-design-graph-server.log
+            /tmp/edg.dump.sha256
           if-no-files-found: warn

@@ -1,4 +1,5 @@
 name: TSUGU C-04 User-defined Workspace v6 E2E
+# Current C-04 acceptance. Earlier v2-v5 acceptance workflows are historical/manual only.
 
 on:
   pull_request:
@@ -13,6 +14,10 @@ on:
       - 'tests/longtext-fullscreen.e2e.cjs'
       - '.github/scripts/build-pages-site.sh'
       - '.github/workflows/pages.yml'
+      - '.github/workflows/c04-ui-usability-v2-e2e.yml'
+      - '.github/workflows/c04-ui-usability-v3-e2e.yml'
+      - '.github/workflows/c04-structure-ui-v4-e2e.yml'
+      - '.github/workflows/c04-box-registry-v5-e2e.yml'
       - '.github/workflows/c04-user-defined-workspace-v6-e2e.yml'
   workflow_run:
     workflows: ['Deploy TSUGU']

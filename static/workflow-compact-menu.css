@@ -1,0 +1,31 @@
+#tsugu-workspace-tools.tsugu-workspace-tools{position:fixed;top:66px;right:8px;left:auto;z-index:90;width:44px;height:44px;margin:0;padding:0;border:0;border-radius:12px;background:transparent;box-shadow:none;overflow:visible}
+#tsugu-workspace-tools .tsugu-workspace-menu-trigger{display:flex;align-items:center;justify-content:center;width:44px;height:44px;min-width:44px;padding:0;border-radius:12px;font-size:28px;line-height:1;background:#fff;border:1px solid #cbd8d4;box-shadow:0 4px 12px rgba(25,55,54,.14)}
+#tsugu-workspace-tools .tsugu-workspace-menu-content{position:absolute;top:50px;right:0;width:min(720px,calc(100vw - 16px));max-height:calc(100dvh - 124px);overflow:auto;padding:0;background:#fff;border:1px solid #cedbd6;border-radius:12px;box-shadow:0 16px 36px rgba(18,41,40,.22);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-6px);transition:opacity .14s ease,transform .14s ease,visibility .14s step-end}
+#tsugu-workspace-tools.tsugu-workspace-tools-open .tsugu-workspace-menu-content{opacity:1;visibility:visible;pointer-events:auto;transform:none;transition:opacity .14s ease,transform .14s ease}
+#tsugu-workspace-tools .tsugu-find-row{display:block;padding:10px}
+#tsugu-workspace-tools .tsugu-search-label{display:block;margin:0}
+#tsugu-workspace-tools .tsugu-search-label>span{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#tsugu-workspace-tools .tsugu-search-label input{width:100%;margin:0}
+#tsugu-workspace-tools .tsugu-find-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;overflow:visible;padding:0}
+#tsugu-workspace-tools .tsugu-find-controls label{min-width:0;margin:0}
+#tsugu-workspace-tools .tsugu-structure-actions{grid-column:1/-1;display:flex;gap:8px;margin-top:2px}
+#tsugu-workspace-tools .tsugu-structure-actions button{flex:1;min-height:40px}
+#tsugu-workspace-tools .tsugu-find-results{display:grid;grid-template-columns:1fr;gap:4px;max-height:min(42vh,300px);overflow:auto;margin:0;padding:0 10px 10px}
+#tsugu-workspace-tools .tsugu-find-hint{padding:6px 2px 2px}
+#tsugu-workspace-tools .tsugu-find-result{min-height:48px;margin:0}
+@media(max-width:600px){
+  #app .tabs{overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none;white-space:nowrap}
+  #app .tabs::-webkit-scrollbar{display:none}
+  #tsugu-workspace-tools.tsugu-workspace-tools{top:62px;right:6px}
+  #tsugu-workspace-tools .tsugu-workspace-menu-content{position:fixed;top:112px;left:8px;right:8px;width:auto;max-height:calc(100dvh - 120px);border-radius:10px}
+  #tsugu-workspace-tools .tsugu-find-row{padding:8px}
+  #tsugu-workspace-tools .tsugu-find-controls{grid-template-columns:1fr;gap:6px;margin-top:6px}
+  #tsugu-workspace-tools .tsugu-find-controls label{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:6px;font-size:12px}
+  #tsugu-workspace-tools .tsugu-structure-actions{grid-column:1;gap:6px}
+  #tsugu-workspace-tools .tsugu-find-results{max-height:36vh;padding:0 8px 8px}
+  #tsugu-workspace-tools .tsugu-find-result{min-height:50px}
+  .tsugu-detail-head{padding:8px 8px 6px}
+  .tsugu-detail-content{padding:12px 10px}
+  .tsugu-detail-section{margin-bottom:18px}
+  .tsugu-acceptance,.tsugu-spec-body{padding:10px 12px}
+}

@@ -49,7 +49,10 @@ jobs:
         run: |
           psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -f engineering-design-graph/db/001_initial.sql
           test "$(psql -h 127.0.0.1 -U postgres -d edg -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('projects','artifacts','artifact_versions','relations','change_sets','change_set_items','validation_issues','ai_candidates','reviews','readiness_snapshots','audit_logs','outbox_events')")" = "12"
-          psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into projects(name) values ('CI migration smoke');"
+          PROJECT_ID="$(psql -h 127.0.0.1 -U postgres -d edg -Atc "insert into projects(name) values ('CI migration smoke') returning id")"
+          psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into change_sets(project_id,title,base_revision,actor_user_id) values ('$PROJECT_ID','OIDC subject smoke',1,'oidc|user@example.test');"
+          psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into audit_logs(project_id,actor_user_id,action,target_type,target_id,trace_id) values ('$PROJECT_ID','oidc|user@example.test','PATCH smoke','artifact','REQ-SMOKE','trace-ci');"
+          psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into outbox_events(aggregate_type,aggregate_id,event_type,payload) values ('artifact','REQ-SMOKE','artifact.updated','{}'::jsonb);"
       - name: Run Engineering Design Graph domain, API, AI, security and package tests
         run: npm test
       - name: Install Playwright Chromium

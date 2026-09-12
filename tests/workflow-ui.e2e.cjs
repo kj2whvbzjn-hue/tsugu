@@ -17,7 +17,7 @@ fs.mkdirSync('outputs',{recursive:true});
   await route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
  });
  const click=(text)=>page.getByRole('button',{name:text,exact:true}).click();
- async function connected(){const details=page.locator('.connection');if(!(await details.getAttribute('open')))await details.locator('summary').click();await page.locator('[name=token]').fill('ephemeral-test-token');await click('接続');await page.getByRole('status').filter({hasText:'として接続'}).waitFor();}
+ async function connected(){const details=page.locator('.connection');if((await details.getAttribute('open'))===null)await details.locator('summary').click();await page.locator('[name=token]').fill('ephemeral-test-token');await click('接続');await page.getByRole('status').filter({hasText:'として接続'}).waitFor();}
  async function tab(text){await page.getByRole('tab',{name:text,exact:true}).click();}
  async function add(collection,values){await page.locator(`[data-action=add][data-collection=${collection}]`).first().click();for(const [k,v] of Object.entries(values)){const e=page.locator(`#record-editor [name=${k}]`);const tag=await e.evaluate(el=>el.tagName);if(tag==='SELECT')await e.selectOption(v);else if(typeof v==='boolean')await e.setChecked(v);else await e.fill(v);}await click('変更を反映');await page.locator('.dialog').waitFor({state:'hidden'});}
  const result={status:'RUNNING',target,scenarios:[],network:'GitHub API intercepted with stateful optimistic-concurrency fixture',browser:'Chromium',viewport:{width:390,height:844}};

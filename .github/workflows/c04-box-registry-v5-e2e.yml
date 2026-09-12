@@ -1,5 +1,5 @@
 name: TSUGU C-04 Box Registry v5 E2E
-# Permanent v5 acceptance. The one-shot v4/v5 materializer workflows and patch tools are intentionally absent from the final candidate.
+# Permanent v5 acceptance. Candidate and published checks use the same Pages artifact builder.
 
 on:
   pull_request:
@@ -13,6 +13,8 @@ on:
       - 'static/c04-box-registry-plan-v5.json'
       - 'tests/c04-box-registry-v5.e2e.cjs'
       - 'tests/longtext-fullscreen.e2e.cjs'
+      - '.github/scripts/build-pages-site.sh'
+      - '.github/workflows/pages.yml'
       - '.github/workflows/c04-box-registry-v5-e2e.yml'
   workflow_run:
     workflows: ['Deploy TSUGU']
@@ -42,6 +44,7 @@ jobs:
           node --check tests/c04-box-registry-v5.e2e.cjs
           node --check tests/longtext-fullscreen.e2e.cjs
           node --check static/box-registry-v5.js
+          bash -n .github/scripts/build-pages-site.sh
           base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-v5-app.js
           node --check /tmp/c04-v5-app.js
           node --input-type=module --check < /tmp/c04-v5-app.js
@@ -52,14 +55,7 @@ jobs:
           grep -q 'box-registry-v5.js?v=c04-v5' static/index.html
       - name: Build candidate Pages site
         if: ${{ github.event_name != 'workflow_run' }}
-        run: |
-          set -euo pipefail
-          rm -rf _site
-          mkdir -p _site
-          cp -a static/. _site/
-          base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
-          rm -f _site/app.js.gz.b64
-          node --check _site/app.js
+        run: bash .github/scripts/build-pages-site.sh _site
       - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null 2>&1

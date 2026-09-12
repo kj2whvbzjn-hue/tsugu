@@ -18,7 +18,7 @@ export function createHttpGateway({api=createApiService(),verifyBearer,auditOutb
       authorize(principal,permissionForRequest(method,url.pathname));
       if(method!=='GET'&&method!=='HEAD')body=await readJson(req);
       const idem=idempotency.appliesTo(method,url.pathname)?idempotency.lookup({principal,method,path:url.pathname,key:req.headers['idempotency-key'],body}):null;
-      if(idem?.hit){const cached=idem.response;await auditOutbox.record({principal,method,path:url.pathname,status:cached.status,requestId,body});send(res,cached.status,{'x-request-id':requestId,'idempotency-replayed':'true',...cached.headers},cached.body);return}
+      if(idem?.hit){const cached=idem.response;await auditOutbox.record({principal,method,path:url.pathname,status:cached.status,requestId,body,replayed:true});send(res,cached.status,{'x-request-id':requestId,'idempotency-replayed':'true',...cached.headers},cached.body);return}
       const response=await api.handle({method,url:url.pathname+url.search,body,headers:{...req.headers,'x-user-id':principal.userId,'x-request-id':requestId}});
       if(idem&&!idem.hit&&req.headers['idempotency-key']&&response.status>=200&&response.status<300)idempotency.store({scope:idem.scope,fingerprint:idem.fingerprint,response});
       await auditOutbox.record({principal,method,path:url.pathname,status:response.status,requestId,body});

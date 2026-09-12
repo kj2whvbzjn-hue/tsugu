@@ -20,6 +20,7 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           p=Path('tools/c04_v3_patch.py')
           s=p.read_text()
           needle="new_editor = '''"
@@ -32,6 +33,11 @@ jobs:
           if modal_insert not in s:
               if modal_call not in s: raise SystemExit('modal call anchor missing')
               s=s.replace(modal_call,modal_insert+modal_call,1)
+          if 'relation_start=text.rfind' not in s:
+              pattern=r"replace_once\(\n\s+'''\s*<label class=\"field full\"><span>関連先ID</span>.*?</label>''',\n"
+              repl="relation_pos=text.index('<span>関連先ID</span>')\nrelation_start=text.rfind('<label',0,relation_pos)\nrelation_end=text.index('</label>',relation_pos)+len('</label>')\nreplace_once(\n    text[relation_start:relation_end],\n"
+              s,n=re.subn(pattern,repl,s,count=1,flags=re.S)
+              if n!=1: raise SystemExit(f'relation patcher anchor count {n}')
           p.write_text(s)
           PY
       - name: Apply deterministic product patch

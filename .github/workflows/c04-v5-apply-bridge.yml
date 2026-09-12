@@ -1,0 +1,48 @@
+name: C-04 v5 Apply Box Registry Bridge
+
+on:
+  push:
+    branches: [c04-v4-core-structure-navigation-20260912]
+    paths:
+      - 'tools/c04_v5_bridge_patch.py'
+      - '.github/workflows/c04-v5-apply-bridge.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: c04-v5-apply-bridge
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: c04-v4-core-structure-navigation-20260912
+          fetch-depth: 0
+      - name: Apply v5 bridge patch
+        run: |
+          set -euo pipefail
+          python3 tools/c04_v5_bridge_patch.py
+          node --check /tmp/c04-v5-app.js
+          node --input-type=module --check < /tmp/c04-v5-app.js
+          node --check static/box-registry-v5.js
+          grep -q 'C04_BOX_REGISTRY_V5_BRIDGE' /tmp/c04-v5-app.js
+          grep -q 'TSUGU_APP_BRIDGE' /tmp/c04-v5-app.js
+          grep -q 'TSUGU_V5_RENDER' /tmp/c04-v5-app.js
+          grep -q 'TSUGU_V5_BIND' /tmp/c04-v5-app.js
+      - name: Commit materialized app
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- static/app.js.gz.b64; then
+            echo 'No bridge materialization needed'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add static/app.js.gz.b64
+          git commit -m 'feat: expose v5 box registry bridge'
+          git pull --rebase origin c04-v4-core-structure-navigation-20260912
+          git push origin HEAD:c04-v4-core-structure-navigation-20260912

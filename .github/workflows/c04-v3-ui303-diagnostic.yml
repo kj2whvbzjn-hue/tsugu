@@ -1,0 +1,54 @@
+name: C04 v3 UI3-03 diagnostic
+
+on:
+  push:
+    branches:
+      - c04-v3-decision-ui-implementation-20260912
+    paths:
+      - '.github/workflows/c04-v3-ui303-diagnostic.yml'
+      - 'tools/c04_v3_ui303_diagnostic.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify and build candidate site
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -a static/. _site/
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
+          rm -f _site/app.js.gz.b64
+          node --input-type=module --check < _site/app.js
+      - name: Prepare diagnostic test copy
+        run: node tools/c04_v3_ui303_diagnostic.cjs
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start candidate server
+        run: |
+          python3 -m http.server 4173 --directory _site >/tmp/c04-ui303-http.log 2>&1 &
+          echo $! > /tmp/c04-ui303-server.pid
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/ >/dev/null && exit 0; sleep 1; done
+          exit 1
+      - name: Run diagnostic copy of frozen acceptance
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          C04_TARGET_URL: http://127.0.0.1:4173/
+        run: node tests/c04-ui-usability-v3.diagnostic.cjs
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c04-ui303-diagnostic-${{ github.run_id }}
+          path: c04-ui-usability-v3-evidence.json
+          if-no-files-found: ignore

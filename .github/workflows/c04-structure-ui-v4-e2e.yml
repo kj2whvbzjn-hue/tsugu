@@ -1,4 +1,5 @@
 name: TSUGU C-04 Structure UI v4 E2E
+# Acceptance criteria are frozen in static/c04-structure-ui-plan-v4.json.
 
 on:
   pull_request:

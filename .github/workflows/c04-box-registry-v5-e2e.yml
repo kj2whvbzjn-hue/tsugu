@@ -1,4 +1,5 @@
 name: TSUGU C-04 Box Registry v5 E2E
+# Permanent v5 acceptance. The one-shot v4/v5 materializer workflows and patch tools are intentionally absent from the final candidate.
 
 on:
   pull_request:

@@ -5,9 +5,10 @@ const audienceMatches=(claim,aud)=>Array.isArray(claim)?claim.includes(aud):clai
 
 export const ROLE_PERMISSIONS={
   viewer:new Set(['read']),
-  editor:new Set(['read','write','ai_request','package_generate']),
-  reviewer:new Set(['read','write','ai_request','ai_review','package_generate','readiness_override']),
-  admin:new Set(['read','write','ai_request','ai_review','package_generate','readiness_override','admin'])
+  editor:new Set(['read','write','ai_request','ai_review','package_generate']),
+  reviewer:new Set(['read','write','review_approve','ai_request','ai_review','package_generate']),
+  architect:new Set(['read','write','review_approve','decision_approve','system_lock','ai_request','ai_review','package_generate','readiness_override']),
+  admin:new Set(['read','write','review_approve','decision_approve','system_lock','ai_request','ai_review','package_generate','readiness_override','admin'])
 };
 
 export function createOidcVerifier({issuer,audience,jwks,clock=()=>Date.now()}={}){
@@ -28,7 +29,7 @@ export function createOidcVerifier({issuer,audience,jwks,clock=()=>Date.now()}={
     if(claims.exp!=null&&now>=claims.exp)throw Object.assign(new Error('JWT expired'),{status:401,code:'JWT_EXPIRED'});
     if(claims.nbf!=null&&now<claims.nbf)throw Object.assign(new Error('JWT not active'),{status:401,code:'JWT_NOT_ACTIVE'});
     if(!claims.sub)throw Object.assign(new Error('JWT subject missing'),{status:401,code:'JWT_SUBJECT_MISSING'});
-    const roles=[...(claims.roles||[]),...(claims.realm_access?.roles||[])];
+    const roles=[...(claims.roles||[]),...(claims.realm_access?.roles||[])].map(r=>String(r).toLowerCase());
     return {userId:claims.sub,email:claims.email||null,name:claims.name||null,roles:[...new Set(roles)],claims};
   };
 }
@@ -45,5 +46,8 @@ export function permissionForRequest(method,path){
   if(/\/ai\/candidates\/.+\/(accept|reject)$/.test(path))return 'ai_review';
   if(/\/implementation-packages(?:\/|$)/.test(path))return 'package_generate';
   if(/readiness.*override/.test(path))return 'readiness_override';
+  if(/\/reviews\/.+\/approve$/.test(path))return 'review_approve';
+  if(/\/decisions\/.+\/approve$/.test(path))return 'decision_approve';
+  if(/\/systems\/.+\/lock$/.test(path))return 'system_lock';
   return 'write';
 }

@@ -22,7 +22,7 @@ jobs:
           import base64,gzip,pathlib
           raw=pathlib.Path('static/app.js.gz.b64').read_text().strip()
           text=gzip.decompress(base64.b64decode(raw)).decode()
-          needles=['関連先ID','JSONから新規取込','GitHubから再読込','接続解除','workspace-sticky','item-card-compact','現在の焦点','次にすること','項目編集']
+          needles=['const state=','data-edit','modalSave','modalCancel','itemParent','startItemEditor','render(){','function render()']
           for needle in needles:
               print('\n===== NEEDLE',needle,'=====')
               start=0
@@ -31,7 +31,7 @@ jobs:
                   i=text.find(needle,start)
                   if i<0: break
                   found+=1
-                  lo=max(0,i-1600); hi=min(len(text),i+2200)
+                  lo=max(0,i-1800); hi=min(len(text),i+2800)
                   print(f'--- occurrence {found} index {i} ---')
                   print(text[lo:hi].replace(';',';\n'))
                   start=i+len(needle)

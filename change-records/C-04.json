@@ -1,9 +1,11 @@
 {
   "taskId": "C-04",
   "title": "UI/使用性テストと操作効率検証",
-  "status": "CANDIDATE_PASS_AWAITING_PUBLISHED_VERIFICATION",
+  "status": "PASS",
   "date": "2026-09-12",
+  "completedAt": "2026-09-12",
   "startSha": "0c66b549cc60a9f741f025ec208ddc0483ef25b9",
+  "resultSha": "88c9de5e978de8d2540056ea0136e55a76b80bc1",
   "branch": "vnext-c04-ui-usability-20260912",
   "pullRequest": 25,
   "historicalV1": {
@@ -44,11 +46,12 @@
       "Bound the item view to 8 rows per page, stricter than the v2 maximum of 20.",
       "Provide previous/next paging without document navigation.",
       "Keep project actions and project tabs in a sticky workspace control area.",
-      "Keep mobile item search/filter controls at least 44 CSS px high."
+      "Keep mobile item search/filter controls at least 44 CSS px high.",
+      "Use fetch cache:no-store for GitHub GET operations that read current workspace state."
     ]
   },
   "deleteReloadVerification": {
-    "status": "CANDIDATE_PASS",
+    "status": "PASS",
     "historicalFailureRun": 34657670861,
     "rootCauseIsolation": {
       "initialHypothesis": "STALE_ASYNC_LOAD_OVERWRITE",
@@ -61,7 +64,7 @@
       "repair": "GitHub GET operations in the product gh() helper explicitly use fetch cache:'no-store'.",
       "isolationPassRun": 34658311864
     },
-    "v2Result": {
+    "publishedResult": {
       "afterFirstDelete": {"githubProjectCount": 1, "visibleProjectCount": 1},
       "afterFinalDelete": {"githubProjectCount": 0, "visibleProjectCount": 0},
       "stableAfter5Seconds": true
@@ -76,6 +79,23 @@
       "id": 10285894780,
       "name": "c04-ui-usability-v2-evidence-34659672296",
       "sha256": "9978e4f9d387b974402f9866a28271035bc06bdfe750606cd0a056d78abde452"
+    }
+  },
+  "deployment": {
+    "mergeSha": "88c9de5e978de8d2540056ea0136e55a76b80bc1",
+    "deployRunId": 34659933244,
+    "result": "PASS"
+  },
+  "publishedVerification": {
+    "status": "PASS",
+    "targetUrl": "https://kj2whvbzjn-hue.github.io/tsugu/",
+    "sourceSha": "88c9de5e978de8d2540056ea0136e55a76b80bc1",
+    "workflowRunId": 34659951510,
+    "workflowJobId": 103460223337,
+    "artifact": {
+      "id": 10287480398,
+      "name": "c04-ui-usability-v2-evidence-34659951510",
+      "sha256": "78d5813f6e530704d0732fbb3ff263778abb2339bff7d26c78d28cd4f214325b"
     },
     "measurements": {
       "mobile": {
@@ -119,17 +139,9 @@
       "UI2-06": "PASS",
       "UI2-07": "PASS",
       "UI2-08": "PASS"
-    },
-    "sameHeadRegressions": {
-      "stageB": {"runId": 34659672281, "result": "PASS"},
-      "impactGraphC01": {"runId": 34659672305, "result": "PASS"},
-      "architectureHealthC02": {"runId": 34659672356, "result": "PASS"},
-      "syncRecoveryC03": {"runId": 34659672262, "result": "PASS"}
     }
   },
-  "publishedVerification": {
-    "status": "PENDING_AFTER_MERGE_AND_DEPLOY"
-  },
-  "nextTask": "C-04-PUBLISHED-VERIFY",
-  "blocker": "Do not start D-01 until the merged candidate is deployed and the same frozen v2 Playwright acceptance passes against published GitHub Pages."
+  "nextTask": "C-03-LOAD-THRESHOLD-APPROVAL",
+  "followingTask": "D-01",
+  "blocker": "C-04 is complete. D-01 remains blocked only by the existing C-03 load-threshold approval record, which still requires explicit maxSyncMs, maxRecalculationMs, and approvalRef; no numeric thresholds are invented here."
 }

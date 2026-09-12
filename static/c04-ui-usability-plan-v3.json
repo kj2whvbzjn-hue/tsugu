@@ -1,0 +1,153 @@
+{
+  "type": "TSUGUDecisionCenteredUIAcceptancePlan",
+  "taskId": "C-04",
+  "version": 3,
+  "title": "判断中心UI・関連参照ナビゲーション — 事前合格基準",
+  "status": "FROZEN_BEFORE_BASELINE_MEASUREMENT",
+  "registeredAt": "2026-09-12T09:53:00+09:00",
+  "basis": {
+    "projectPurpose": [
+      "TSUGUは人間とAIが開発計画・タスク・判断・検査・承認を共有し、担当交代後も状態と理由を失わず開発を継続できる状態を作る。",
+      "人間がTSUGUを見るだけで、何を作るか、なぜ必要か、現在タスク、成果commit、変更、検査、PASS/FAIL、未解決、次作業、完了根拠を理解できる状態を目標とする。",
+      "TSUGUは人間がプロジェクト全体を見る中心画面であり、判断のために別画面検索やID記憶を反復させない。"
+    ],
+    "userObservedProblems": [
+      "初回接続用の管理操作を接続後も常時大きく表示している。",
+      "モバイルで無駄な余白が多く、判断対象よりUI chromeが画面を占有する。",
+      "関連先IDを入力できるが、その場では関連先の意味・状態・存在を確認できない。",
+      "関連項目を確認するために一覧へ戻り、IDを検索し、さらに関連があれば同じ操作を繰り返す必要がある。"
+    ]
+  },
+  "principles": [
+    "今この人が何を判断しようとしているかを表示優先度の基準にする。",
+    "常設要素は、その場の判断に常時必要である理由を説明できるものに限定する。",
+    "根拠・関連先は一覧検索を経由せず、現在文脈から直接たどれるようにする。",
+    "結果を見て基準を緩めない。",
+    "既存C-04 v2のviewport・上下移動・runtime品質基準を後退させない。"
+  ],
+  "target": {
+    "publishedUrl": "https://kj2whvbzjn-hue.github.io/tsugu/",
+    "measurement": "Playwright Chromium on published UI with isolated temporary Git data branch",
+    "viewports": [
+      {"id":"mobile","width":390,"height":844},
+      {"id":"desktop","width":1440,"height":1000}
+    ]
+  },
+  "improvements": [
+    {
+      "id":"UI3-01",
+      "name":"接続後の管理操作を収納し案件判断を前面化",
+      "fix":"接続完了後は接続先の短い状態表示とoverflow triggerのみを残し、JSON取込・GitHub再読込・接続解除等を常設しない。",
+      "pass":[
+        "接続後に常時表示される接続管理triggerは最大1個。",
+        "JSONから新規取込・GitHubから再読込・接続解除はoverflow内に収納され、同時常設されない。",
+        "mobile初回viewportで最初の案件カードの25%以上が視認できる。",
+        "最初の案件カード上端 <= 0.75 viewport height。"
+      ]
+    },
+    {
+      "id":"UI3-02",
+      "name":"余白とカード密度の最適化",
+      "fix":"接続領域・案件操作・タブ・項目カード・編集モーダルの無意味なvertical spaceを削減する。",
+      "pass":[
+        "説明不能な単一vertical gap > 32px が0件。",
+        "同一セクション内の主要control間gap <= 20px。",
+        "編集モーダルの連続field block間gap <= 20px。",
+        "通常項目row/cardの高さ <= 144px on mobile。",
+        "余白削減のためにtouch target 44x44 CSS px基準を破らない。"
+      ]
+    },
+    {
+      "id":"UI3-03",
+      "name":"案件を開いた時に判断情報を先に見せる",
+      "fix":"案件名・現在状態に続き、目的・現在の焦点・未解決・次作業を管理操作より高い情報優先度で見せる。",
+      "pass":[
+        "案件タイトルからpurpose/focus/nextの判断情報へ到達する累積縦移動 <= 1 viewport。",
+        "判断情報を見るために別タブ検索・ページreload・GitHub管理メニュー展開を要求しない。"
+      ]
+    },
+    {
+      "id":"UI3-04",
+      "name":"関連先をID文字列ではなく意味のある参照として表示",
+      "fix":"関連先は存在確認済みstable IDへ解決し、ID・タイトル・種別・状態・relationをinline表示する。",
+      "pass":[
+        "関連先1件についてID・タイトル・種別・状態が元項目画面内で視認できる。",
+        "存在しない関連先は未解決参照としてinline表示される。",
+        "関連先の意味確認のための手動検索=0、IDコピー/記憶=0。"
+      ]
+    },
+    {
+      "id":"UI3-05",
+      "name":"関連先1hopを直接開く",
+      "fix":"元項目Aの関連Bをchip/card等から直接開き、一覧検索を経由しない。",
+      "pass":[
+        "A→Bは最大1 user action。",
+        "A→Bの手動検索=0。",
+        "A→Bの項目一覧中間表示=0。",
+        "A→Bのbrowser/document navigation=0。",
+        "Aの未保存編集値を保持したままBを参照できる。"
+      ]
+    },
+    {
+      "id":"UI3-06",
+      "name":"関連連鎖A→B→Cと文脈復帰",
+      "fix":"関連先詳細内から次関連を直接たどり、breadcrumb/relation stack等で元項目へ戻れるようにする。",
+      "pass":[
+        "A→B→Cのforward操作は最大2 actions。",
+        "A→B→Cの検索回数=0、IDコピー=0、一覧経由=0。",
+        "C→Aは最大1 action。",
+        "A→B→C→Aのbrowser/document navigation=0。",
+        "Aへ戻った時にAの未保存編集値が完全保持される。"
+      ]
+    },
+    {
+      "id":"UI3-07",
+      "name":"関連参照の入力支援と検証",
+      "fix":"生ID自由入力だけでなくID/タイトル候補検索と存在検証を提供する。",
+      "pass":[
+        "IDまたはタイトルから候補を選択できる。",
+        "保存前に存在しない参照を検出できる。",
+        "候補選択後はstable IDを保持しつつ人間向け表示はタイトル中心になる。"
+      ]
+    },
+    {
+      "id":"UI3-08",
+      "name":"既存使用性・runtime品質の維持",
+      "fix":"v3改善でC-04 v2の直接到達・scroll budget・削除再読込・runtime品質を悪化させない。",
+      "pass":[
+        "known target lookup <= 2 viewports。",
+        "target-to-primary-action <= 1 viewport。",
+        "one objective flow <= 3 viewports。",
+        "same-range retraversal=0。",
+        "unhandled page errors=0、unexpected API 4xx/5xx=0、unexpected console errors=0。"
+      ]
+    }
+  ],
+  "budgets": {
+    "connectedPersistentManagementTriggersMax": 1,
+    "firstProjectTopMaxViewportRatio": 0.75,
+    "unexplainedVerticalGapMaxPx": 32,
+    "sameSectionControlGapMaxPx": 20,
+    "modalFieldBlockGapMaxPx": 20,
+    "mobileNormalItemRowHeightMaxPx": 144,
+    "mobileTouchTargetMinPx": 44,
+    "projectDecisionInfoTravelMaxViewports": 1,
+    "relatedOneHopMaxActions": 1,
+    "relatedOneHopSearches": 0,
+    "relatedOneHopListIntermediates": 0,
+    "relatedChainTwoHopMaxForwardActions": 2,
+    "relatedChainSearches": 0,
+    "relatedChainListIntermediates": 0,
+    "relatedChainReturnToOriginMaxActions": 1,
+    "relatedChainDocumentNavigations": 0,
+    "targetLookupMaxViewports": 2,
+    "targetToPrimaryActionMaxViewports": 1,
+    "objectiveFlowMaxViewports": 3,
+    "sameRangeRetraversals": 0,
+    "runtimeUnhandledPageErrors": 0,
+    "runtimeUnexpectedApi4xx5xx": 0,
+    "runtimeUnexpectedConsoleErrors": 0
+  },
+  "measurementRule": "Baseline measurement is allowed to FAIL. Every failed criterion is an implementation requirement. Acceptance thresholds remain frozen until the corresponding implementation has been tested.",
+  "resultRule": "UI3-01 through UI3-08 must all PASS before C-04 v3 can be accepted."
+}

@@ -34,6 +34,14 @@ export function createOidcVerifier({issuer,audience,jwks,clock=()=>Date.now()}={
   };
 }
 
+export function createRefreshingOidcVerifier({issuer,audience,jwksUrl,fetchImpl=globalThis.fetch,cacheTtlMs=300_000,clock=()=>Date.now()}={}){
+  if(!issuer||!audience||!jwksUrl)throw new Error('OIDC issuer, audience and jwksUrl are required');if(!fetchImpl)throw new Error('fetch implementation is required');if(!Number.isInteger(cacheTtlMs)||cacheTtlMs<=0)throw new Error('cacheTtlMs must be positive');
+  let verifier=null,expiresAt=0,inflight=null;
+  const refresh=async(force=false)=>{if(!force&&verifier&&clock()<expiresAt)return verifier;if(inflight)return inflight;inflight=(async()=>{const response=await fetchImpl(jwksUrl,{headers:{accept:'application/json'}});if(!response.ok)throw Object.assign(new Error(`OIDC JWKS request failed: ${response.status}`),{status:503,code:'OIDC_JWKS_UNAVAILABLE'});const jwks=await response.json();if(!Array.isArray(jwks?.keys)||!jwks.keys.length)throw Object.assign(new Error('OIDC JWKS contains no keys'),{status:503,code:'OIDC_JWKS_INVALID'});verifier=createOidcVerifier({issuer,audience,jwks,clock});expiresAt=clock()+cacheTtlMs;return verifier})();try{return await inflight}finally{inflight=null}};
+  const verifyBearer=async value=>{let current=await refresh(false);try{return await current(value)}catch(error){if(error?.code!=='JWT_KEY_UNKNOWN')throw error;current=await refresh(true);return current(value)}};
+  verifyBearer.refresh=()=>refresh(true);verifyBearer.cacheState=()=>({expiresAt,loaded:!!verifier});return verifyBearer;
+}
+
 export function authorize(principal,permission){
   const roles=principal?.roles||[];
   if(!roles.some(role=>ROLE_PERMISSIONS[role]?.has(permission)))throw Object.assign(new Error(`Permission denied: ${permission}`),{status:403,code:'FORBIDDEN'});

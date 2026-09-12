@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _site
-          cp static/index.html static/styles.css static/longtext-focus.css static/longtext-focus.js static/favicon.svg static/stage-b-mvp-scenarios.json static/core-reference.js static/core-architecture.js static/core-changeset.js static/core-box.js static/core-box-changeset.js static/core-rule-test.js static/core-rule-test-changeset.js static/core-governance.js static/core-governance-changeset.js static/core-check-evidence.js static/core-evidence-storage.js static/core-check-evidence-changeset.js static/core-planned-actual-change.js static/core-git-diff.js static/core-planned-actual-change-changeset.js static/core-assurance-event.js static/core-task-execution.js static/core-assurance-event-changeset.js static/core-impact-graph.js static/core-architecture-health.js static/core-sync.js static/core-sync-storage.js static/core-sync-reconcile.js static/core-sync-recovery.js static/core-sync-admin.js static/core-guard.js _site/
+          cp static/index.html static/styles.css static/structure-v4.css static/box-registry-v5.css static/box-registry-v5.js static/longtext-focus.css static/longtext-focus.js static/favicon.svg static/stage-b-mvp-scenarios.json static/core-reference.js static/core-architecture.js static/core-changeset.js static/core-box.js static/core-box-changeset.js static/core-rule-test.js static/core-rule-test-changeset.js static/core-governance.js static/core-governance-changeset.js static/core-check-evidence.js static/core-evidence-storage.js static/core-check-evidence-changeset.js static/core-planned-actual-change.js static/core-git-diff.js static/core-planned-actual-change-changeset.js static/core-assurance-event.js static/core-task-execution.js static/core-assurance-event-changeset.js static/core-impact-graph.js static/core-architecture-health.js static/core-sync.js static/core-sync-storage.js static/core-sync-reconcile.js static/core-sync-recovery.js static/core-sync-admin.js static/core-guard.js _site/
           base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
           node --check _site/core-reference.js
           node --check _site/core-architecture.js
@@ -63,7 +63,31 @@ jobs:
           node --check _site/core-sync-admin.js
           node --check _site/core-guard.js
           node --check _site/longtext-focus.js
+          node --check _site/box-registry-v5.js
           node --check _site/app.js
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          class LocalAssets(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.paths = []
+              def handle_starttag(self, tag, attrs):
+                  attrs = dict(attrs)
+                  for key in ('src', 'href'):
+                      value = attrs.get(key, '')
+                      if value.startswith('./'):
+                          self.paths.append(urlsplit(value).path.removeprefix('./'))
+
+          parser = LocalAssets()
+          parser.feed(Path('_site/index.html').read_text())
+          missing = sorted({path for path in parser.paths if not Path('_site', path).is_file()})
+          if missing:
+              raise SystemExit('missing runtime assets: ' + ', '.join(missing))
+          print('Verified runtime assets:', ', '.join(sorted(set(parser.paths))))
+          PY
       - name: Upload TSUGU artifact
         uses: actions/upload-pages-artifact@v4
         with:

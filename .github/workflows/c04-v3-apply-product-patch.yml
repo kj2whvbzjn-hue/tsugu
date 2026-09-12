@@ -16,18 +16,22 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - name: Stabilize editor source anchor
+      - name: Stabilize source anchors
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('tools/c04_v3_patch.py')
           s=p.read_text()
           needle="new_editor = '''"
-          if needle not in s:
-              raise SystemExit('new_editor anchor missing')
-          insert="old_editor = text[text.index(\"function startItemEditor(existing=null){\"):text.index(\"function deleteItem(id){\", text.index(\"function startItemEditor(existing=null){\"))]\n"
-          if insert not in s:
-              s=s.replace(needle,insert+needle,1)
+          editor_insert="old_editor = text[text.index(\"function startItemEditor(existing=null){\"):text.index(\"function deleteItem(id){\", text.index(\"function startItemEditor(existing=null){\"))]\n"
+          if editor_insert not in s:
+              if needle not in s: raise SystemExit('new_editor anchor missing')
+              s=s.replace(needle,editor_insert+needle,1)
+          modal_call="replace_once(modal_anchor, modal_replacement, 'modal heading')"
+          modal_insert="modal_start=text.index('return `<div class=\\\"modal-backdrop\\\"><div class=\\\"modal\\\">',text.index('function renderModal(){'))\nmodal_grid=text.index('<div class=\\\"grid\\\">',modal_start)+len('<div class=\\\"grid\\\">')\nmodal_anchor=text[modal_start:modal_grid]\n"
+          if modal_insert not in s:
+              if modal_call not in s: raise SystemExit('modal call anchor missing')
+              s=s.replace(modal_call,modal_insert+modal_call,1)
           p.write_text(s)
           PY
       - name: Apply deterministic product patch

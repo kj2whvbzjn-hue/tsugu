@@ -1,0 +1,40 @@
+name: C04 v3 source diagnostic
+
+on:
+  push:
+    branches:
+      - c04-v3-decision-ui-implementation-20260912
+    paths:
+      - .github/workflows/c04-v3-source-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Decode and print targeted source context
+        run: |
+          python - <<'PY'
+          import base64,gzip,pathlib
+          raw=pathlib.Path('static/app.js.gz.b64').read_text().strip()
+          text=gzip.decompress(base64.b64decode(raw)).decode()
+          needles=['関連先ID','JSONから新規取込','GitHubから再読込','接続解除','workspace-sticky','item-card-compact','現在の焦点','次にすること','項目編集']
+          for needle in needles:
+              print('\n===== NEEDLE',needle,'=====')
+              start=0
+              found=0
+              while True:
+                  i=text.find(needle,start)
+                  if i<0: break
+                  found+=1
+                  lo=max(0,i-1600); hi=min(len(text),i+2200)
+                  print(f'--- occurrence {found} index {i} ---')
+                  print(text[lo:hi].replace(';',';\n'))
+                  start=i+len(needle)
+              if not found: print('NOT FOUND')
+          print('APP_LENGTH',len(text))
+          PY

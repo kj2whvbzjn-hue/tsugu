@@ -39,7 +39,11 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
       PGPASSWORD: postgres
+      PGDATABASE: edg
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
@@ -49,17 +53,21 @@ jobs:
         run: |
           for migration in engineering-design-graph/db/*.sql; do
             echo "Applying $migration"
-            psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -f "$migration"
+            psql -v ON_ERROR_STOP=1 -f "$migration"
           done
-          test "$(psql -h 127.0.0.1 -U postgres -d edg -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('projects','artifacts','artifact_versions','relations','change_sets','change_set_items','validation_issues','ai_candidates','reviews','readiness_snapshots','audit_logs','outbox_events','project_members','project_policies')")" = "14"
-          PROJECT_ID="$(psql -h 127.0.0.1 -U postgres -d edg -qAtc "with inserted as (insert into projects(name) values ('CI migration smoke') returning id) select id from inserted")"
-          psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into project_members(project_id,user_subject,role) values ('$PROJECT_ID','oidc|user@example.test','architect');"
-          psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into project_policies(project_id,policy,updated_by) values ('$PROJECT_ID','{\"aiEnabled\":true}'::jsonb,'oidc|user@example.test');"
-          psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into change_sets(project_id,title,base_revision,actor_user_id) values ('$PROJECT_ID','OIDC subject smoke',1,'oidc|user@example.test');"
-          psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into audit_logs(project_id,actor_user_id,action,target_type,target_id,trace_id) values ('$PROJECT_ID','oidc|user@example.test','PATCH smoke','artifact','REQ-SMOKE','trace-ci');"
-          psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into outbox_events(aggregate_type,aggregate_id,event_type,payload) values ('artifact','REQ-SMOKE','artifact.updated','{}'::jsonb);"
+          test "$(psql -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('projects','artifacts','artifact_versions','relations','change_sets','change_set_items','validation_issues','ai_candidates','reviews','readiness_snapshots','audit_logs','outbox_events','project_members','project_policies')")" = "14"
+          PROJECT_ID="$(psql -qAtc "with inserted as (insert into projects(name) values ('CI migration smoke') returning id) select id from inserted")"
+          psql -v ON_ERROR_STOP=1 -c "insert into project_members(project_id,user_subject,role) values ('$PROJECT_ID','oidc|user@example.test','architect');"
+          psql -v ON_ERROR_STOP=1 -c "insert into project_policies(project_id,policy,updated_by) values ('$PROJECT_ID','{\"aiEnabled\":true}'::jsonb,'oidc|user@example.test');"
+          psql -v ON_ERROR_STOP=1 -c "insert into change_sets(project_id,title,base_revision,actor_user_id) values ('$PROJECT_ID','OIDC subject smoke',1,'oidc|user@example.test');"
+          psql -v ON_ERROR_STOP=1 -c "insert into audit_logs(project_id,actor_user_id,action,target_type,target_id,trace_id) values ('$PROJECT_ID','oidc|user@example.test','PATCH smoke','artifact','REQ-SMOKE','trace-ci');"
+          psql -v ON_ERROR_STOP=1 -c "insert into outbox_events(aggregate_type,aggregate_id,event_type,payload) values ('artifact','REQ-SMOKE','artifact.updated','{}'::jsonb);"
       - name: Run Engineering Design Graph domain, API, AI, security and package tests
         run: npm test
+      - name: Install PostgreSQL integration dependency
+        run: npm install --no-save --package-lock=false pg@8.16.3
+      - name: Run pooled runtime against real PostgreSQL
+        run: node tests/engineering-design-postgres.integration.mjs
       - name: Install Playwright Chromium
         run: |
           npm install --no-save --package-lock=false playwright@1.55.0

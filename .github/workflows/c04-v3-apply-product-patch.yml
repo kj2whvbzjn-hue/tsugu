@@ -23,21 +23,37 @@ jobs:
           import re
           p=Path('tools/c04_v3_patch.py')
           s=p.read_text()
+
           needle="new_editor = '''"
           editor_insert="old_editor = text[text.index(\"function startItemEditor(existing=null){\"):text.index(\"function deleteItem(id){\", text.index(\"function startItemEditor(existing=null){\"))]\n"
           if editor_insert not in s:
               if needle not in s: raise SystemExit('new_editor anchor missing')
               s=s.replace(needle,editor_insert+needle,1)
+
           modal_call="replace_once(modal_anchor, modal_replacement, 'modal heading')"
           modal_insert="modal_start=text.index('return `<div class=\\\"modal-backdrop\\\"><div class=\\\"modal\\\">',text.index('function renderModal(){'))\nmodal_grid=text.index('<div class=\\\"grid\\\">',modal_start)+len('<div class=\\\"grid\\\">')\nmodal_anchor=text[modal_start:modal_grid]\n"
           if modal_insert not in s:
               if modal_call not in s: raise SystemExit('modal call anchor missing')
               s=s.replace(modal_call,modal_insert+modal_call,1)
+
           if 'relation_start=text.rfind' not in s:
               pattern=r"replace_once\(\n\s+'''\s*<label class=\"field full\"><span>関連先ID</span>.*?</label>''',\n"
               repl="relation_pos=text.index('<span>関連先ID</span>')\nrelation_start=text.rfind('<label',0,relation_pos)\nrelation_end=text.index('</label>',relation_pos)+len('</label>')\nreplace_once(\n    text[relation_start:relation_end],\n"
               s,n=re.subn(pattern,repl,s,count=1,flags=re.S)
               if n!=1: raise SystemExit(f'relation patcher anchor count {n}')
+
+          bind_needle="new_bind = '''"
+          bind_insert="bind_pos=text.index(\"$('#newBtn').onclick=createDraft;\")\nbind_start=text.rfind('return}',0,bind_pos)\nbind_end=text.index(\"$('#disconnectBtn').onclick=disconnect;\",bind_pos)+len(\"$('#disconnectBtn').onclick=disconnect;\")\nold_bind=text[bind_start:bind_end]\n"
+          if bind_insert not in s:
+              if bind_needle not in s: raise SystemExit('new_bind anchor missing')
+              s=s.replace(bind_needle,bind_insert+bind_needle,1)
+
+          parent_needle="new_parent = '''"
+          parent_insert="parent_start=text.index(\"$('#itemParent').oninput\")\nparent_end=text.index(\"$('#modalSave').onclick=saveItemFromModal\",parent_start)+len(\"$('#modalSave').onclick=saveItemFromModal\")\nold_parent=text[parent_start:parent_end]\n"
+          if parent_insert not in s:
+              if parent_needle not in s: raise SystemExit('new_parent anchor missing')
+              s=s.replace(parent_needle,parent_insert+parent_needle,1)
+
           p.write_text(s)
           PY
       - name: Apply deterministic product patch

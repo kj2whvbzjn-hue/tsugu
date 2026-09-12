@@ -10,7 +10,7 @@
 - Acceptance: `.github/workflows/workflow-acceptance.yml`
 - Deploy: `.github/workflows/pages.yml`
 
-Pages artifactはindex.html、favicon.svg、workflow.css、workflow-domain.mjs、workflow-git.mjs、workflow-app.mjsの6ファイルだけで構成する。gzip/Base64の旧app、旧Core、旧UI scriptsを含めない。
+Pages artifactはindex.html、favicon.svg、workflow.css、workflow-domain.mjs、workflow-git.mjs、workflow-app.mjs、workflow-import.mjs、manual.html、project-import-example.jsonの9ファイルだけで構成する。gzip/Base64の旧app、旧Core、旧UI scriptsを含めない。
 
 `main`更新または手動Deployは、Workflow Acceptance（domain・保存競合・参照検査、成果物構築、UI通し検証）に合格してから配置する。旧画面向けE2Eは新画面の合格条件に流用しない。
 

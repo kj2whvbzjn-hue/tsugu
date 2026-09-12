@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'none'; base-uri 'none'; form-action 'none'">
+<title>取り扱い説明書 — 継ぐ / TSUGU</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./workflow.css">
+</head>
+<body>
+<header><h1>継ぐ <small>/ TSUGU</small></h1><a href="./index.html">工程管理へ戻る</a></header>
+<main class="manual">
+<section class="panel"><p class="tiny">TSUGU Workflow / 新規案件登録ガイド</p><h2>取り扱い説明書</h2><p>目的、作業、確認結果を一つの案件で管理します。まず案件を作成し、作業分類 → WorkBox → Task の順に作業を組み立てます。JSONでまとめて準備することもできます。</p><nav aria-label="説明書の目次"><a href="#connect">接続</a> · <a href="#new">画面から登録</a> · <a href="#json">JSON一括取り込み</a> · <a href="#format">JSONの書き方</a> · <a href="#workflow">登録後の進め方</a> · <a href="#trouble">困ったとき</a></nav></section>
+<section class="panel" id="connect"><h2>1. GitHubへ接続する</h2><ol><li>工程管理ページの「GitHubに接続」を開きます。</li><li>保存先の Owner、Private Repository、Branch を入力します。初期表示は kj2whvbzjn-hue / tsugu-data / main です。利用する保存先を確認してください。</li><li>保存先リポジトリの Contents に読み書きできる Fine-grained PAT を入力し、「接続」を押します。指定したブランチはあらかじめ存在する必要があります。</li></ol><p>接続中のアカウント名と保存先が表示されたら利用できます。PATはこのタブを利用している間だけ保持します。再読込した場合は再接続してください。PATを案件の本文やJSONに記入しないでください。</p><p>この説明書とサンプルは接続せずに閲覧できます。</p></section>
+<section class="panel" id="new"><h2>2. 画面から新規案件を登録する</h2><ol><li>案件一覧の「＋ 新規案件」を押し、案件名を入力して「作成」を押します。</li><li>「概要」の「目的と背景」から「編集」を開き、目的・概要・現在の目標を記入します。</li><li>「構成」で「＋ 作業分類」を追加します。作業分類は親を指定して階層化できます。</li><li>「＋ WorkBox」で所属する作業分類と作業のまとまりを登録します。</li><li>「＋ Task」で所属WorkBox・作業名・受入条件・種別・実行順序を登録します。先に終えるTaskがあれば、そのIDを依存先に指定します。</li><li>「GitHubへ保存」を押し、「GitHubへ保存しました」と版番号が表示されたことを確認します。</li></ol><p><strong>通常の「作成」「変更を反映」だけでは保存されません。</strong>画面に「未保存」があるときは、移動・再読込の前に保存してください。JSON一括取り込みの「GitHubへ登録」は直接保存します。</p></section>
+<section class="panel" id="json"><h2>3. JSONで新規案件を一括登録する</h2><p><a href="./project-import-example.json" download>サンプルJSONをダウンロード（2案件）</a></p><ol><li>サンプルの案件名・目的・作業内容を編集し、UTF-8の .json ファイルに保存します。1案件だけなら projects の2件目を削除します。</li><li>GitHubへ接続し、案件一覧の「JSON一括取り込み」を押します。</li><li>ファイルを選択するか、「新規登録用JSON」に本文を貼り付けます。ファイル選択後も本文を編集できます。</li><li>「取り込み内容を確認」を押します。全案件の形式・ID・参照先・循環依存を検証します。不正な案件があれば、この段階では何も保存しません。</li><li>案件名・件数・目的を確認します。「登録内容をすべて確認」で省略値を補った内容を確認できます。修正する場合は閉じ、元のJSONを直してやり直します。</li><li>「○案件をGitHubへ登録」を押します。処理中はタブを閉じたり再読込したりせず、完了を待ちます。</li><li>各案件が「登録済み」になったことを確認し、「登録結果JSONを保存」で案件IDと保存commitを控えます。閉じると案件一覧から開けます。</li></ol><p>1回につき最大20案件、入力は2MBまで、1案件の記録は合計1000件までです。展開後の保存サイズにも上限があります。大きい場合は案件・内容を分けてください。</p><p><strong>各案件に新しい案件IDを発行します。</strong>既存案件の上書き・更新・重複排除は行いません。同じJSONを再登録すると別案件になります。すべて「検討」工程・Activeで開始し、TaskはTodo、承認と確認はPendingです。</p><p><strong>複数案件を一つの取引として保存する機能ではありません。</strong>順番に保存し、失敗した案件で停止します。先に登録された案件は残ります。結果の「要確認」「未登録」の扱いは<a href="#trouble">困ったとき</a>を参照してください。</p></section>
+<section class="panel" id="format"><h2>4. JSONの書き方</h2><p>最小形式です。案件名だけでも登録できます。コメントや末尾の余分なカンマは使えません。</p><pre><code>{
+  "schema_version": "tsugu-project-import/1",
+  "projects": [
+    { "name": "新しい案件", "project_context": { "purpose": "この案件で達成したいこと" } }
+  ]
+}</code></pre><p>projectsは案件の配列です。同じJSON内では案件名を重複させないでください。各記録には英数字・ハイフン・アンダースコア・ピリオドで id を指定します。同一案件の同じ種類の中でIDは一意にします。別案件では同じIDを使えます。</p><div class="table-scroll"><table><caption>案件に指定できる主な項目</caption><thead><tr><th>項目</th><th>書き方・用途</th></tr></thead><tbody>
+<tr><td>name</td><td>必須。案件名の文字列。</td></tr>
+<tr><td>project_context</td><td>purpose（目的）、summary（概要）。いずれも文字列。</td></tr>
+<tr><td>current_focus</td><td>theme、goal、architecture_id、work_box_id。参照IDは同じ案件の記録を指定。</td></tr>
+<tr><td>source_baseline</td><td>repository、branch、commit_sha、source_label。実装の基準資料。</td></tr>
+<tr><td>architecture_nodes</td><td>作業分類の配列。各要素は id・name が必須。parent_id は親分類のID、省略すると最上位。</td></tr>
+<tr><td>work_boxes</td><td>WorkBoxの配列。id・title・node_id が必須。body に説明を記入。</td></tr>
+<tr><td>tasks</td><td>Taskの配列。id・title・box_id・acceptance_criteria が必須。詳細は次表。</td></tr>
+<tr><td>checks</td><td>確認計画の配列。id、title、gate、target_type、target_id を指定。gate は General / Implementation / Completion。対象は Project / Architecture / WorkBox / Task / Artifact。Project対象は target_id を "$project" または省略。実績は取り込めないためArtifact対象の新規計画は登録後に追加。</td></tr>
+<tr><td>project_rules</td><td>ルールの配列。id・title・text。status は省略または Active。</td></tr>
+</tbody></table></div>
+<div class="table-scroll"><table><caption>Taskの追加項目と省略値</caption><thead><tr><th>項目</th><th>値・意味</th></tr></thead><tbody>
+<tr><td>acceptance_criteria</td><td>必須。「何を確認できれば完了か」を空でない文字列で記入。</td></tr>
+<tr><td>depends_on</td><td>先に完了させるTaskのID配列。省略すると []。循環参照や別案件への参照は不可。</td></tr>
+<tr><td>execution_order</td><td>0以上の整数。省略すると配列内の順序（1から）。依存関係が優先されます。</td></tr>
+<tr><td>work_type</td><td>DEVELOPMENT_ONLY（調査・設計など、commit必須でない作業、既定） / SOURCE_UPDATE（ソース更新） / GAME_DATA（ゲームデータ更新）。後二つは完了にAppliedの実装記録と固定commitが必要。</td></tr>
+<tr><td>requires_human_approval</td><td>true / false。省略すると false。工程の実装開始承認は別途必要。</td></tr>
+<tr><td>specification_ids</td><td>対応する正式仕様IDの配列。省略すると []。</td></tr>
+<tr><td>status</td><td>省略または Todo のみ。approval は指定不可。</td></tr>
+</tbody></table></div>
+<details><summary>議論・仕様・システムもまとめて登録する</summary><p>次の配列も取り込めます。すべての要素で id が必須です。画面の各編集フォームと同じ項目名を使い、承認・日時・実績などの管理項目は含めないでください。</p><div class="table-scroll"><table><thead><tr><th>配列名</th><th>主な内容</th><th>初期状態</th></tr></thead><tbody>
+<tr><td>discussions</td><td>title、summary、body、open_questions、conclusion、related_discussion_ids</td><td>Open</td></tr>
+<tr><td>decisions</td><td>title、text、rationale、source_discussion_ids</td><td>Proposed</td></tr>
+<tr><td>specifications</td><td>title、body、summary、acceptance_criteria、decision_refs、depends_on、system_node_id、contract_ids、revision</td><td>Draft</td></tr>
+<tr><td>specification_candidates</td><td>title、target_specification_id、body。素材の固定と承認は登録後に操作。</td><td>candidate</td></tr>
+<tr><td>system_nodes</td><td>name、description</td><td>―</td></tr>
+<tr><td>system_contracts</td><td>title、name、producer_system_id、consumer_system_ids、definition</td><td>―</td></tr>
+<tr><td>system_connections</td><td>title、from_system_id、to_system_id、relation（PROVIDES / REQUIRES / AFFECTS / IMPLEMENTS）、contract_id、purpose</td><td>―</td></tr>
+<tr><td>system_flags</td><td>title、scope_type、scope_id、value。Projectのscope_idは "$project"。</td><td>―</td></tr>
+<tr><td>system_impacts</td><td>title、system_node_id、summary</td><td>Open</td></tr>
+</tbody></table></div><p>本文は文字列、IDの複数参照は文字列の配列で指定します。初期状態と違うstatus、未知の項目、型の違いはエラーになります。</p></details>
+<h3>取り込み形式の使い分け</h3><ul><li><strong>新規案件登録：</strong>この説明書の tsugu-project-import/1 を使用します。</li><li><strong>既存案件へ内容を追加・更新：</strong>「引継ぎ」→「AI返却JSONを確認」を使用します。project_id・instance_id・base_revision が一致する案件だけに統合します。</li><li><strong>「案件JSONを保存」で出力したファイル：</strong>tsugu-workflow/1 の案件記録です。この新規登録フォームには直接戻せません。新規案件として利用する場合は、name と計画に必要な配列だけを上記形式へ移してください。</li><li><strong>旧システムのJSON：</strong>items / core などの自動変換はありません。上記の作業分類・WorkBox・Taskへ整理してください。</li></ul><p>authority、workspace、revision（案件直下）、workflow、lifecycle、history、各承認、確認の実施結果・証拠、実装記録・成果物・イベント履歴は新規取り込みでは受け付けません。実績を新規案件の承認として流用しないためです。</p></section>
+<section class="panel" id="workflow"><h2>5. 登録後に工程を進める</h2><ol><li><strong>検討：</strong>目的と作業計画を整え、「工程・確認」から「実装準備へ」を押します。</li><li><strong>実装準備：</strong>Implementationの確認事項を1件以上登録し、実施して結果・証拠を記録します。確認が成立したら「実装開始を承認」を押します。</li><li><strong>実装：</strong>承認が必要なTaskは「Taskを承認」を押します。依存先が完了していれば「開始」できます。作業後はTask対象・Completionの確認事項を実施し、結果・証拠を記録します。SOURCE_UPDATE / GAME_DATAは「実装・成果物」でAppliedの実装記録と40桁のcommit SHAも記録します。</li><li><strong>確認：</strong>Taskをすべて完了し、「確認工程へ」を押します。Completionの確認事項、必須FAIL、未解決の変更影響を確認します。</li><li><strong>完了：</strong>条件がそろったら「完了を承認」を押します。変更を「GitHubへ保存」します。</li></ol><p>Failedの記録は変更・削除しません。再確認の記録を追加し、「解決するFailed Check ID」に元のIDを指定します。対象と工程が同じ再確認で解決します。計画変更で承認対象が変わった場合は承認が無効になり、再確認が必要になります。</p></section>
+<section class="panel" id="trouble"><h2>6. 困ったとき</h2><div class="table-scroll"><table><thead><tr><th>表示・状況</th><th>対応</th></tr></thead><tbody>
+<tr><td>JSONの構文が不正</td><td>キーと文字列を半角の二重引用符で囲み、コメント・末尾のカンマ・Markdownのコード囲みを取り除きます。</td></tr>
+<tr><td>未対応の案件形式／項目</td><td>schema_version と取り込み用途を確認します。エクスポート記録やAI返却を直接貼らないでください。エラーに出た項目名を確認します。</td></tr>
+<tr><td>参照先が存在しない／循環依存／ID重複</td><td>node_id・box_id・depends_onなどを確認します。参照先を同じ案件へ追加し、IDの大文字・小文字も一致させます。相互に依存するTaskは分割します。</td></tr>
+<tr><td>取り込み結果が「要確認」</td><td>その案件で処理を停止しました。保存が成功した後に応答だけ失われた可能性もあります。登録結果JSONを保存し、閉じて「再読込」を押します。結果JSONの案件IDを一覧のファイル名と照合し、開いて内容を確認してください。必要なら保存先の記載パスをGitHubでも確認します。存在しないことが確認できるまで再登録しません。</td></tr>
+<tr><td>取り込み結果が「未登録」</td><td>その案件は保存処理を開始していません。元JSONのprojectsから登録済み・要確認の案件を除き、未登録だけを再取り込みできます。</td></tr>
+<tr><td>途中でタブを閉じた／結果を控え忘れた</td><td>再接続して案件一覧を再読込します。案件名と内容を確認し、必要なら保存先の更新履歴を確認してください。登録済み案件を重複作成しないよう、元JSONを全件再送しないでください。</td></tr>
+<tr><td>GitHub HTTP 403 / 404</td><td>アカウント・PATの対象リポジトリと書込権限、Owner・Repository・Branch、リポジトリがPrivateであることを確認します。</td></tr>
+<tr><td>競合／再読込が必要</td><td>別タブや他の担当者が更新した可能性があります。未保存内容が必要なら「案件JSONを保存」で控えてから最新を再読込し、変更を見直します。</td></tr>
+</tbody></table></div></section>
+<p class="tiny">説明書の対象：TSUGU Workflow・新規登録形式 tsugu-project-import/1。保存先は接続時に選んだリポジトリ／ブランチです。</p>
+</main></body></html>

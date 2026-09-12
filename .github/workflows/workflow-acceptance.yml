@@ -24,7 +24,7 @@ jobs:
           bash .github/scripts/build-pages-site.sh _site
           python3 - <<'PY'
           from pathlib import Path
-          expected={'index.html','favicon.svg','workflow.css','workflow-domain.mjs','workflow-git.mjs','workflow-app.mjs'}
+          expected={'index.html','favicon.svg','workflow.css','workflow-domain.mjs','workflow-git.mjs','workflow-app.mjs','workflow-import.mjs','manual.html','project-import-example.json'}
           assert {p.name for p in Path('_site').iterdir()} == expected
           assert {p.name for p in Path('static').iterdir()} == expected
           PY
@@ -36,6 +36,7 @@ jobs:
         run: |
           python3 -m http.server 4173 --directory _site > /tmp/tsugu-workflow-server.log 2>&1 &
           node tests/workflow-ui.e2e.cjs
+          node tests/workflow-import-ui.e2e.cjs
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4

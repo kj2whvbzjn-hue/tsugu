@@ -20,8 +20,13 @@ export async function startEngineeringDesignServer({env=process.env,fetchFn=fetc
   const outboxWorker=new OutboxWorker({store:runtime.outbox,publisher}),outboxScheduler=new OutboxScheduler({worker:outboxWorker,intervalMs:config.outbox.intervalMs,logger,metrics:runtime.metrics}).start();
   let otlpTimer=null,otlpExporter=null;if(config.telemetry.otlpEndpoint){otlpExporter=createOtlpHttpExporter({endpoint:config.telemetry.otlpEndpoint,headers:config.telemetry.otlpAuthorization?{authorization:config.telemetry.otlpAuthorization}:{},fetchImpl:fetchFn});otlpTimer=setInterval(()=>{void otlpExporter.export(runtime.metrics).catch(error=>logger.warn('telemetry.export_failed',{message:String(error?.message||error)}))},config.telemetry.exportIntervalMs);otlpTimer.unref?.()}
   logger.info('server.started',{...publicConfigSummary(config),pid:process.pid});
-  const close=async()=>{if(otlpTimer)clearInterval(otlpTimer);await outboxScheduler.stop();await new Promise((resolve,reject)=>server.close(err=>err?reject(err):resolve()));await pool.end();logger.info('server.stopped',{pid:process.pid})};
+  let closing=null;const close=()=>closing||(closing=(async()=>{if(otlpTimer){clearInterval(otlpTimer);otlpTimer=null}await outboxScheduler.stop();await new Promise((resolve,reject)=>server.close(err=>err?reject(err):resolve()));await pool.end();logger.info('server.stopped',{pid:process.pid})})());
   return{...runtime,pool,server,config,publisher,outboxWorker,outboxScheduler,otlpExporter,close};
 }
 
-if(import.meta.url===`file://${process.argv[1]}`){startEngineeringDesignServer().catch(error=>{console.error(JSON.stringify({timestamp:new Date().toISOString(),level:'error',event:'server.start_failed',message:String(error?.message||error)}));process.exitCode=1})}
+export function installShutdownHandlers(runtime,{processRef=process,logger=runtime.logger||console}={}){
+  let handled=false;const shutdown=signal=>{if(handled)return;handled=true;logger.info?.('server.shutdown_requested',{signal,pid:processRef.pid});void runtime.close().then(()=>{processRef.exitCode=0}).catch(error=>{logger.error?.('server.shutdown_failed',{signal,message:String(error?.message||error)});processRef.exitCode=1})};
+  processRef.once('SIGTERM',()=>shutdown('SIGTERM'));processRef.once('SIGINT',()=>shutdown('SIGINT'));return shutdown;
+}
+
+if(import.meta.url===`file://${process.argv[1]}`){startEngineeringDesignServer().then(runtime=>installShutdownHandlers(runtime)).catch(error=>{console.error(JSON.stringify({timestamp:new Date().toISOString(),level:'error',event:'server.start_failed',message:String(error?.message||error)}));process.exitCode=1})}

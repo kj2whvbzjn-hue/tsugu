@@ -1,0 +1,113 @@
+import base64
+import gzip
+from pathlib import Path
+
+bundle = Path('static/app.js.gz.b64')
+text = gzip.decompress(base64.b64decode(bundle.read_text().strip())).decode()
+
+def replace_once(old: str, new: str, label: str):
+    global text
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f'{label}: expected 1 anchor, got {count}')
+    text = text.replace(old, new)
+
+replace_once(
+    "const state={token:'',user:null,repo:{...DEFAULTS},records:[],active:null,activeSha:null,activePath:null,activeOriginalText:undefined,savedProject:'',tab:'概要',itemQuery:'',itemKind:'',itemStatus:'',itemPage:1,loading:false,message:null,pendingApprovals:{implementation:false,completion:false},modal:null};",
+    "const state={token:'',user:null,repo:{...DEFAULTS},records:[],active:null,activeSha:null,activePath:null,activeOriginalText:undefined,savedProject:'',tab:'概要',itemQuery:'',itemKind:'',itemStatus:'',itemPage:1,loading:false,message:null,pendingApprovals:{implementation:false,completion:false},workspaceMenuOpen:false,modal:null};",
+    'state',
+)
+
+old_sidebar = '''function renderSidebar(){return `<aside class="sidebar"><div class="brand"><div class="brand-mark">継</div><div><h1>TSUGU</h1><small>GitHub workspace</small></div></div><div class="status"><strong>${esc(state.user.login)}</strong><small>${esc(state.repo.owner)}/${esc(state.repo.repo)} · ${esc(state.repo.branch)}</small></div><button class="primary" id="newBtn">＋ 新規案件</button><button id="importBtn">JSONから新規取込</button><input id="importFile" class="sr-only" type="file" accept="application/json,.json"/><button id="reloadBtn">GitHubから再読込</button><button id="disconnectBtn">接続解除</button><div class="project-list"><h2>案件</h2>${state.records.length?state.records.map(r=>`<button class="${state.active?.project.id===r.record.project.id?'active':''}" data-open="${esc(r.record.project.id)}">${esc(r.record.project.name)}<span class="meta">版 ${r.record.revision} · ${r.record.updatedAt?new Date(r.record.updatedAt).toLocaleString('ja-JP'):'更新日時なし'}</span></button>`).join(''):'<p class="muted">まだ案件がありません。</p>'}</div></aside>`}'''
+new_sidebar = '''function renderSidebar(){const maintenance=state.workspaceMenuOpen?`<div class="workspace-menu" role="menu"><button id="importBtn" role="menuitem">JSONから新規取込</button><button id="reloadBtn" role="menuitem">GitHubから再読込</button><button id="disconnectBtn" role="menuitem">接続解除</button></div>`:'';return `<aside class="sidebar"><div class="brand"><div class="brand-mark">継</div><div><h1>TSUGU</h1><small>GitHub workspace</small></div></div><div class="status"><strong>${esc(state.user.login)}</strong><small>${esc(state.repo.owner)}/${esc(state.repo.repo)} · ${esc(state.repo.branch)}</small></div><div class="sidebar-primary-row"><button class="primary" id="newBtn">＋ 新規案件</button><button id="workspaceMenuBtn" class="workspace-menu-trigger" aria-haspopup="menu" aria-expanded="${state.workspaceMenuOpen?'true':'false'}" aria-label="接続・取込メニュー">…</button></div><input id="importFile" class="sr-only" type="file" accept="application/json,.json"/>${maintenance}<div class="project-list"><h2>案件</h2>${state.records.length?state.records.map(r=>`<button class="${state.active?.project.id===r.record.project.id?'active':''}" data-open="${esc(r.record.project.id)}">${esc(r.record.project.name)}<span class="meta">版 ${r.record.revision} · ${r.record.updatedAt?new Date(r.record.updatedAt).toLocaleString('ja-JP'):'更新日時なし'}</span></button>`).join(''):'<p class="muted">まだ案件がありません。</p>'}</div></aside>`}'''
+replace_once(old_sidebar, new_sidebar, 'sidebar')
+
+old_overview = '''function renderOverview(p){return `<section class="panel"><h3>概要</h3><div class="grid"><label class="field"><span>案件名</span><input data-field="name" value="${esc(p.name)}" /></label><label class="field"><span>工程</span><select id="stageSelect">${stages.map(s=>`<option ${p.stage===s?'selected':''}>${s}</option>`).join('')}</select></label><label class="field full"><span>目的</span><textarea data-field="purpose">${esc(p.purpose)}</textarea></label><label class="field full"><span>守る方針</span><textarea data-field="rules">${esc(p.rules)}</textarea></label><label class="field full"><span>ソース基準</span><textarea data-field="baseline">${esc(p.baseline)}</textarea></label><label class="field full"><span>現在の焦点</span><textarea data-field="focus">${esc(p.focus)}</textarea></label><label class="field full"><span>次にすること</span><textarea data-field="next">${esc(p.next)}</textarea></label></div></section><section class="panel"><h3>この保存版の承認</h3><p class="hint">編集すると既存承認は現在版には引き継がれません。必要な承認をこの保存操作と同時に記録します。</p><label class="checkline"><input id="approveImpl" type="checkbox" ${state.pendingApprovals.implementation?'checked':''}/> 実装承認をこの保存版に付与</label><label class="checkline"><input id="approveDone" type="checkbox" ${state.pendingApprovals.completion?'checked':''}/> 完了承認をこの保存版に付与</label><p class="muted">現在: 実装承認 ${p.implementationApproved?'済':'未'} / 完了承認 ${p.completionApproved?'済':'未'}</p></section>`}'''
+new_overview = '''function renderOverview(p){return `<section class="panel overview-panel"><h3>概要</h3><div class="grid overview-grid"><label class="field"><span>案件名</span><input data-field="name" value="${esc(p.name)}" /></label><label class="field"><span>工程</span><select id="stageSelect">${stages.map(s=>`<option ${p.stage===s?'selected':''}>${s}</option>`).join('')}</select></label><label class="field full decision-field"><span>目的</span><textarea data-field="purpose">${esc(p.purpose)}</textarea></label><label class="field full decision-field"><span>現在の焦点</span><textarea data-field="focus">${esc(p.focus)}</textarea></label><label class="field full decision-field"><span>次にすること</span><textarea data-field="next">${esc(p.next)}</textarea></label><label class="field full"><span>守る方針</span><textarea data-field="rules">${esc(p.rules)}</textarea></label><label class="field full"><span>ソース基準</span><textarea data-field="baseline">${esc(p.baseline)}</textarea></label></div></section><section class="panel"><h3>この保存版の承認</h3><p class="hint">編集すると既存承認は現在版には引き継がれません。必要な承認をこの保存操作と同時に記録します。</p><label class="checkline"><input id="approveImpl" type="checkbox" ${state.pendingApprovals.implementation?'checked':''}/> 実装承認をこの保存版に付与</label><label class="checkline"><input id="approveDone" type="checkbox" ${state.pendingApprovals.completion?'checked':''}/> 完了承認をこの保存版に付与</label><p class="muted">現在: 実装承認 ${p.implementationApproved?'済':'未'} / 完了承認 ${p.completionApproved?'済':'未'}</p></section>`}'''
+replace_once(old_overview, new_overview, 'overview')
+
+old_editor = '''function startItemEditor(existing=null){const item=existing?clone(existing):{id:crypto.randomUUID(),kind:'作業',title:'',body:'',status:'未着手',parentId:'',reason:''};
+state.modal={type:'item',item};
+render()}
+function saveItemFromModal(){const m=state.modal;
+if(!m||m.type!=='item'||!state.active)return;
+const item=m.item;
+if(!item.title.trim()){alert('タイトルを入力してください');
+return}if(item.taskText!==undefined){const txt=item.taskText.trim();
+if(txt){try{item.task=JSON.parse(txt)}catch{alert('作業条件JSONが不正です');
+return}}else delete item.task;
+delete item.taskText}markDirty();
+const p=state.active.project;
+p.items=[...p.items.filter(x=>x.id!==item.id),item];
+state.modal=null;
+render()}'''
+new_editor = '''function projectItemByRef(ref){if(!state.active)return null;const key=String(ref||'').trim();if(!key)return null;return state.active.project.items.find(x=>x.id===key)||state.active.project.items.find(x=>x.title===key)||null}
+function modalRelationItem(m,ref){if(!m||m.type!=='item')return null;const key=String(ref||'').trim();if(!key)return null;const drafts=m.relationDrafts||{};const found=Object.values(drafts).find(x=>x.id===key)||Object.values(drafts).find(x=>x.title===key)||projectItemByRef(key);return found&&found.id!==m.item.id?found:null}
+function relationResolutionHtml(m){const key=String(m?.item?.parentId||'').trim();if(!key)return '<p class="relation-empty">関連先は未設定です。</p>';const related=modalRelationItem(m,key);if(!related)return `<p class="relation-unresolved" role="alert">未解決参照: <code>${esc(key)}</code></p>`;return `<button type="button" class="relation-card" data-related-open="${esc(related.id)}"><span><strong>${esc(related.id)} · ${esc(related.title)}</strong><small><span class="badge">${esc(related.kind)}</span> <span class="badge">${esc(related.status)}</span></small></span><span class="relation-open-label">開く →</span></button>`}
+function startItemEditor(existing=null){const item=existing?clone(existing):{id:crypto.randomUUID(),kind:'作業',title:'',body:'',status:'未着手',parentId:'',reason:''};state.modal={type:'item',item,relationRootId:item.id,relationTrail:[item.id],relationDrafts:{[item.id]:item}};render()}
+function openRelatedItem(id){const m=state.modal;if(!m||m.type!=='item'||!state.active)return;const target=modalRelationItem(m,id)||projectItemByRef(id);if(!target)return;const drafts=m.relationDrafts||{};drafts[m.item.id]=m.item;const next=drafts[target.id]||clone(target);drafts[target.id]=next;let trail=Array.isArray(m.relationTrail)&&m.relationTrail.length?m.relationTrail.slice():[m.item.id];const at=trail.indexOf(target.id);trail=at>=0?trail.slice(0,at+1):[...trail,target.id];state.modal={...m,item:next,relationTrail:trail,relationDrafts:drafts};render()}
+function prepareItemDraft(item,m){if(!item.title.trim()){alert('タイトルを入力してください');return false}const related=modalRelationItem({...m,item},item.parentId);if(related)item.parentId=related.id;if(item.taskText!==undefined){const txt=item.taskText.trim();if(txt){try{item.task=JSON.parse(txt)}catch{alert('作業条件JSONが不正です');return false}}else delete item.task;delete item.taskText}return true}
+function saveItemFromModal(){const m=state.modal;if(!m||m.type!=='item'||!state.active)return;const drafts=m.relationDrafts||{[m.item.id]:m.item};drafts[m.item.id]=m.item;const items=Object.values(drafts);for(const item of items)if(!prepareItemDraft(item,m))return;markDirty();const p=state.active.project;const byId=new Map(items.map(i=>[i.id,i]));p.items=p.items.map(x=>byId.get(x.id)||x);for(const item of items)if(!p.items.some(x=>x.id===item.id))p.items.push(item);state.modal=null;render()}'''
+replace_once(old_editor, new_editor, 'editor')
+
+modal_anchor = '''   return `<div class="modal-backdrop"><div class="modal">
+    <h3>項目編集</h3>
+    <div class="grid">'''
+modal_replacement = '''   const relationId=String(i.parentId||'').trim();
+   const relationOptions=(state.active?.project.items||[]).filter(x=>x.id!==i.id).map(x=>`<option value="${esc(x.id)}" label="${esc(x.title)} · ${esc(x.kind)} · ${esc(x.status)}"></option>`).join('');
+   const trail=Array.isArray(m.relationTrail)&&m.relationTrail.length?m.relationTrail:[i.id];
+   const breadcrumb=trail.length>1?`<nav class="relation-breadcrumb" aria-label="関連項目の経路">${trail.map((id,index)=>{const item=(m.relationDrafts||{})[id]||projectItemByRef(id);return index===trail.length-1?`<span class="relation-current">${esc(id)}</span>`:`<button type="button" data-relation-jump="${esc(id)}">${esc(id)}</button><span aria-hidden="true">›</span>`}).join('')}</nav>`:'';
+   return `<div class="modal-backdrop"><div class="modal">
+    <h3>項目編集</h3>${breadcrumb}
+    <div class="grid">'''
+replace_once(modal_anchor, modal_replacement, 'modal heading')
+
+replace_once(
+    '''     <label class="field full"><span>関連先ID</span><input id="itemParent" value="${esc(i.parentId)}" placeholder="空欄可" /></label>''',
+    '''     <label class="field full relation-field"><span>関連先</span><input id="itemParent" value="${esc(i.parentId)}" list="itemRelationOptions" aria-autocomplete="list" aria-invalid="${relationId&&!modalRelationItem(m,relationId)?'true':'false'}" placeholder="IDまたはタイトルから候補を選択" /><datalist id="itemRelationOptions">${relationOptions}</datalist><div id="relationResolution">${relationResolutionHtml(m)}</div></label>''',
+    'relation field',
+)
+
+old_bind = '''return}$('#newBtn').onclick=createDraft;
+$('#importBtn').onclick=()=>$('#importFile').click();
+$('#importFile').onchange=e=>importTsuguFile(e.target.files?.[0]);
+$('#reloadBtn').onclick=()=>{if(isDirty()&&!confirm('未保存の変更があります。GitHubから再読込しますか？'))return;
+loadRecords()};
+$('#disconnectBtn').onclick=disconnect;'''
+new_bind = '''return}$('#newBtn').onclick=createDraft;
+$('#workspaceMenuBtn')&&($('#workspaceMenuBtn').onclick=()=>{state.workspaceMenuOpen=!state.workspaceMenuOpen;render()});
+$('#importBtn')&&($('#importBtn').onclick=()=>$('#importFile').click());
+$('#importFile').onchange=e=>importTsuguFile(e.target.files?.[0]);
+$('#reloadBtn')&&($('#reloadBtn').onclick=()=>{if(isDirty()&&!confirm('未保存の変更があります。GitHubから再読込しますか？'))return;state.workspaceMenuOpen=false;loadRecords()});
+$('#disconnectBtn')&&($('#disconnectBtn').onclick=disconnect);'''
+replace_once(old_bind, new_bind, 'sidebar bind')
+
+old_parent = '''$('#itemParent').oninput=e=>m.parentId=e.target.value;
+$('#itemTask')&&($('#itemTask').oninput=e=>m.taskText=e.target.value);
+$('#modalSave').onclick=saveItemFromModal'''
+new_parent = '''document.querySelectorAll('[data-related-open]').forEach(b=>b.onclick=()=>openRelatedItem(b.dataset.relatedOpen));
+document.querySelectorAll('[data-relation-jump]').forEach(b=>b.onclick=()=>openRelatedItem(b.dataset.relationJump));
+$('#itemParent').oninput=e=>{m.parentId=e.target.value;const related=modalRelationItem(state.modal,m.parentId);e.target.setAttribute('aria-invalid',String(!!String(m.parentId||'').trim()&&!related));const resolution=$('#relationResolution');if(resolution){resolution.innerHTML=relationResolutionHtml(state.modal);const btn=resolution.querySelector('[data-related-open]');if(btn)btn.onclick=()=>openRelatedItem(btn.dataset.relatedOpen)}};
+$('#itemTask')&&($('#itemTask').oninput=e=>m.taskText=e.target.value);
+$('#modalSave').onclick=saveItemFromModal'''
+replace_once(old_parent, new_parent, 'relation bind')
+
+bundle.write_text(base64.b64encode(gzip.compress(text.encode(), compresslevel=9, mtime=0)).decode() + '\n')
+
+css = Path('static/styles.css')
+styles = css.read_text()
+marker = '/* C04 v3 decision UI */'
+if marker in styles:
+    raise SystemExit('styles already contain C04 v3 marker')
+styles += '''
+/* C04 v3 decision UI */
+.sidebar-primary-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;align-items:center}.workspace-menu-trigger{width:44px!important;min-width:44px;padding:0!important;text-align:center!important;font-size:24px;line-height:1}.workspace-menu{display:grid;gap:6px;margin:8px 0 0;padding:8px;border:1px solid #475569;border-radius:10px;background:#111827}.workspace-menu button{margin:0}.relation-breadcrumb{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-4px 0 10px;font-size:13px}.relation-breadcrumb button{padding:6px 8px;min-height:36px}.relation-current{font-weight:800}.relation-field{gap:8px}.relation-card{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;padding:10px 12px;background:#f8fafc;border-color:#cbd5e1}.relation-card strong{display:block;color:#0f172a}.relation-card small{display:block;margin-top:5px}.relation-open-label{white-space:nowrap;color:#2563eb;font-weight:700}.relation-empty,.relation-unresolved{margin:0;padding:8px 10px;border-radius:8px;font-size:13px}.relation-empty{background:#f8fafc;color:#64748b}.relation-unresolved{background:#fff1f2;color:#b91c1c}.decision-field textarea{min-height:72px}
+@media(max-width:900px){.sidebar{padding:14px 18px}.brand{margin-bottom:10px}.sidebar .status{padding:8px 10px;margin-bottom:10px}.project-list{margin-top:12px}.project-list h2{margin:8px 0}.project-list button{padding:8px 10px}.item-card-compact{padding:7px 9px;margin:5px 0}.item-card-compact .item-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}.item-card-compact .inline-actions{display:flex;flex-wrap:nowrap;align-items:center;gap:6px}.item-card-compact .inline-actions button{min-width:44px;min-height:44px;padding:6px 8px}.item-summary h4{margin:1px 0 3px;font-size:14px}.overview-panel{padding:14px}.overview-grid{gap:10px}.decision-field textarea{min-height:64px}.modal{padding:14px;max-height:96vh}.modal .grid{gap:10px}}
+'''
+css.write_text(styles)
+
+decoded = gzip.decompress(base64.b64decode(bundle.read_text().strip())).decode()
+for token in ['workspaceMenuBtn', 'relationResolutionHtml', 'data-related-open', 'relation-breadcrumb', 'aria-autocomplete="list"', 'decision-field']:
+    if token not in decoded and token not in css.read_text():
+        raise SystemExit(f'missing expected product token: {token}')
+print('C04_V3_PRODUCT_PATCH_OK', len(decoded))

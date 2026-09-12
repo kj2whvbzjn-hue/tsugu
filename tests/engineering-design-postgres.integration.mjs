@@ -29,7 +29,9 @@ try{
   const req=[...runtime.api.projects.get(project.id).artifacts].find(a=>a.type==='requirement');assert.ok(req);
   const server=await runtime.gateway.listen(0),base=`http://127.0.0.1:${server.address().port}`,headers={authorization:`Bearer ${token()}`,'content-type':'application/json'};
   try{
-    let r=await fetch(`${base}/api/v1/artifacts/${req.id}`,{method:'PATCH',headers,body:JSON.stringify({title:'PostgreSQL round-trip title'})});assert.equal(r.status,202);const staged=await r.json(),changeSetId=staged.changeSet.id;
+    let r=await fetch(`${base}/health/ready`);assert.equal(r.status,200);
+    const migration=(await pool.query('select filename,checksum from schema_migrations order by filename limit 1')).rows[0];await pool.query('update schema_migrations set checksum=$2 where filename=$1',[migration.filename,'checksum-drift']);r=await fetch(`${base}/health/ready`);assert.equal(r.status,503);await pool.query('update schema_migrations set checksum=$2 where filename=$1',[migration.filename,migration.checksum]);r=await fetch(`${base}/health/ready`);assert.equal(r.status,200);
+    r=await fetch(`${base}/api/v1/artifacts/${req.id}`,{method:'PATCH',headers,body:JSON.stringify({title:'PostgreSQL round-trip title'})});assert.equal(r.status,202);const staged=await r.json(),changeSetId=staged.changeSet.id;
     r=await fetch(`${base}/api/v1/change-sets/${changeSetId}/apply`,{method:'POST',headers:{...headers,'idempotency-key':'pg-apply-1'},body:'{}'});assert.equal(r.status,200);const applied=await r.json();assert.equal(applied.revision,project.revision+1);
   }finally{await new Promise(resolve=>server.close(resolve))}
   const reloaded=await runtime.repository.get(project.id),updated=reloaded.artifacts.find(a=>a.id===req.id);assert.equal(updated.title,'PostgreSQL round-trip title');assert.equal(updated.version,req.version+1);assert.equal(reloaded.artifactVersions.filter(v=>v.artifactId===req.id).length,2);

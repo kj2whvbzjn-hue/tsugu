@@ -20,6 +20,27 @@ fs.mkdirSync('outputs',{recursive:true});
  async function connected(){const details=page.locator('.connection');if((await details.getAttribute('open'))===null)await details.locator('summary').click();await page.locator('[name=token]').fill('ephemeral-test-token');await click('接続');await page.getByRole('status').filter({hasText:'として接続'}).waitFor();}
  async function tab(text){await page.getByRole('tab',{name:text,exact:true}).click();}
  async function add(collection,values){await page.locator(`[data-action=add][data-collection=${collection}]`).first().click();for(const [k,v] of Object.entries(values)){const e=page.locator(`#record-editor [name=${k}]`);const tag=await e.evaluate(el=>el.tagName);if(tag==='SELECT')await e.selectOption(v);else if(typeof v==='boolean')await e.setChecked(v);else await e.fill(v);}await click('変更を反映');await page.locator('.dialog').waitFor({state:'hidden'});}
+ async function persistentOccupancy(){
+  return page.evaluate(async()=>{
+   const raf=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+   const doc=document.documentElement,maxY=Math.max(0,doc.scrollHeight-innerHeight),positions=[['top',0],['middle',Math.round(maxY/2)],['bottom',maxY]];
+   const measure=()=>{
+    const vw=innerWidth,vh=innerHeight,viewportArea=vw*vh;
+    let candidates=[...document.querySelectorAll('body *')].filter(el=>{
+      const cs=getComputedStyle(el),r=el.getBoundingClientRect();
+      return (cs.position==='fixed'||cs.position==='sticky')&&cs.visibility!=='hidden'&&cs.display!=='none'&&Number(cs.opacity)!==0&&r.width>0&&r.height>0&&r.right>0&&r.bottom>0&&r.left<vw&&r.top<vh;
+    });
+    candidates=candidates.filter(el=>!candidates.some(parent=>parent!==el&&parent.contains(el)));
+    const rects=candidates.map(el=>{const r=el.getBoundingClientRect();return {left:Math.max(0,r.left),top:Math.max(0,r.top),right:Math.min(vw,r.right),bottom:Math.min(vh,r.bottom),position:getComputedStyle(el).position,label:`${el.tagName.toLowerCase()}${el.id?'#'+el.id:''}${[...el.classList].slice(0,3).map(c=>'.'+c).join('')}`};}).filter(r=>r.right>r.left&&r.bottom>r.top);
+    const xs=[0,vw,...rects.flatMap(r=>[r.left,r.right])].sort((a,b)=>a-b).filter((v,i,a)=>i===0||v!==a[i-1]);let unionArea=0;
+    for(let i=0;i<xs.length-1;i++){const x1=xs[i],x2=xs[i+1];if(x2<=x1)continue;const intervals=rects.filter(r=>r.left<x2&&r.right>x1).map(r=>[r.top,r.bottom]).sort((a,b)=>a[0]-b[0]);let covered=0,start=null,end=null;for(const [a,b] of intervals){if(start===null){start=a;end=b;}else if(a<=end){end=Math.max(end,b);}else{covered+=end-start;start=a;end=b;}}if(start!==null)covered+=end-start;unionArea+=(x2-x1)*covered;}
+    return {scrollY:Math.round(scrollY),viewport:{width:vw,height:vh,area:viewportArea},persistentAreaPx:Math.round(unionArea),occupancyPercent:Number((unionArea/viewportArea*100).toFixed(2)),elements:rects.map(r=>({...r,width:Math.round(r.right-r.left),height:Math.round(r.bottom-r.top)}))};
+   };
+   const samples=[];for(const [name,y] of positions){scrollTo(0,y);await raf();samples.push({name,...measure()});}
+   const maxOccupancyPercent=Math.max(...samples.map(s=>s.occupancyPercent));
+   return {definition:'Visible fixed/sticky UI union area divided by viewport area; overlapping descendants/regions are not double-counted.',samples,maxOccupancyPercent};
+  });
+ }
  const result={status:'RUNNING',target,scenarios:[],network:'GitHub API intercepted with stateful optimistic-concurrency fixture',browser:'Chromium',viewport:{width:390,height:844}};
  try{
   await page.goto(target);await connected();await click('＋ 新規案件');await page.locator('#new-project [name=name]').fill('工程移植 E2E');await click('作成');
@@ -53,9 +74,10 @@ fs.mkdirSync('outputs',{recursive:true});
   await tab('工程・確認');await page.locator('.stage.current').filter({hasText:'完了'}).waitFor();await page.getByText('Failed → 解決済み',{exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>localStorage.length),0);assert.equal(await page.evaluate(()=>sessionStorage.length),0);
   const metrics=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));assert.ok(metrics.scrollWidth<=metrics.clientWidth+1,JSON.stringify(metrics));
+  const mobilePersistentOccupancy=await persistentOccupancy();result.scenarios.push('Visibility metric records persistent fixed/sticky UI viewport occupancy at top, middle and bottom without double-counting overlap');
   await page.screenshot({path:'outputs/workflow-mobile.png',fullPage:true});
-  await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>scrollTo(0,document.body.scrollHeight));const sticky=await page.locator('.tabs').evaluate(el=>Math.round(el.getBoundingClientRect().top));assert.ok(sticky>=-1&&sticky<=1,`sticky tabs top=${sticky}`);const desktopMetrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));assert.ok(desktopMetrics.scrollWidth<=desktopMetrics.clientWidth+1,JSON.stringify(desktopMetrics));await page.screenshot({path:'outputs/workflow-desktop.png',fullPage:true});
-  assert.deepEqual(errors,[]);result.scenarios.push('Reload restores canonical project; no browser persistence; mobile and desktop no overflow; desktop primary navigation remains sticky');result.status='PASS';result.metrics=metrics;result.desktopMetrics=desktopMetrics;result.stickyTabsTop=sticky;result.puts=puts;result.consoleErrors=errors;
+  await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>scrollTo(0,document.body.scrollHeight));const sticky=await page.locator('.tabs').evaluate(el=>Math.round(el.getBoundingClientRect().top));assert.ok(sticky>=-1&&sticky<=1,`sticky tabs top=${sticky}`);const desktopMetrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth}));assert.ok(desktopMetrics.scrollWidth<=desktopMetrics.clientWidth+1,JSON.stringify(desktopMetrics));const desktopPersistentOccupancy=await persistentOccupancy();await page.screenshot({path:'outputs/workflow-desktop.png',fullPage:true});
+  assert.deepEqual(errors,[]);result.scenarios.push('Reload restores canonical project; no browser persistence; mobile and desktop no overflow; desktop primary navigation remains sticky');result.status='PASS';result.metrics=metrics;result.desktopMetrics=desktopMetrics;result.stickyTabsTop=sticky;result.visibility={persistentOccupancy:{mobile:mobilePersistentOccupancy,desktop:desktopPersistentOccupancy}};result.puts=puts;result.consoleErrors=errors;
 
  }catch(e){result.error=e.stack;result.status='FAIL';throw e;}finally{fs.writeFileSync('outputs/workflow-ui-evidence.json',JSON.stringify(result,null,2));await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});

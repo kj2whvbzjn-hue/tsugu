@@ -29,6 +29,7 @@ export class PooledOutboxStore{
   constructor(pool){if(!pool?.connect)throw new Error('Postgres pool with connect() is required');this.pool=pool}
   async withStore(fn){const client=await this.pool.connect();try{return await fn(new PostgresAuditOutboxStore(client))}finally{client.release?.()}}
   pending(limit){return this.withStore(store=>store.pending(limit))}
+  claimPending(owner,limit,leaseMs){return this.withStore(store=>store.claimPending(owner,limit,leaseMs))}
   deadLetters(limit){return this.withStore(store=>store.deadLetters(limit))}
   markPublished(id){return this.withStore(store=>store.markPublished(id))}
   markFailed(id,error,options){return this.withStore(store=>store.markFailed(id,error,options))}

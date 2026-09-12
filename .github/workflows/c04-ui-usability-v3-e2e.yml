@@ -1,4 +1,5 @@
 name: TSUGU C-04 UI Usability v3 E2E
+# Frozen v3 thresholds; harness understands overflow actions as ARIA menuitems.
 
 on:
   push:

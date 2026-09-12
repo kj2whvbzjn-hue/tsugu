@@ -1,0 +1,145 @@
+{
+  "storageVersion": 1,
+  "project": {
+    "schemaVersion": 1,
+    "id": "9091aecc-d48f-4f9f-b7a6-874efd08597b",
+    "name": "C-04 v3 判断中心UI・関連参照ナビゲーション計画（取込）",
+    "purpose": "判断に必要な情報を優先し関連根拠へ検索なしで到達するUIを検証する",
+    "rules": "凍結基準を結果後に変更しない",
+    "focus": "常設管理UI収納・判断情報優先・direct relation navigation",
+    "baseline": "C-04 v3 frozen commit 2d0ae47bea70735576a9410ba409f3a6c50865ed",
+    "changeControlEnabled": true,
+    "next": "同じ基準で候補UIを測定",
+    "stage": "検討",
+    "implementationApproved": false,
+    "completionApproved": false,
+    "core": {
+      "architectureNodes": [],
+      "workBoxes": [],
+      "tasks": [],
+      "decisions": [],
+      "issues": [],
+      "checks": [],
+      "approvals": [],
+      "evidences": [],
+      "evidenceVersions": [],
+      "repositories": [],
+      "repositoryBaselines": [],
+      "pathEntries": [],
+      "plannedChanges": [],
+      "actualChanges": [],
+      "relations": [],
+      "securityVersion": 1,
+      "actors": [
+        {
+          "id": "github:1",
+          "login": "kj2whvbzjn-hue",
+          "githubUserId": 1,
+          "githubType": "User",
+          "source": "github:/user",
+          "observedAt": "2026-09-12T05:12:02.308Z"
+        }
+      ],
+      "permissions": [
+        {
+          "id": "project:9091aecc-d48f-4f9f-b7a6-874efd08597b:actor:github:1",
+          "projectId": "9091aecc-d48f-4f9f-b7a6-874efd08597b",
+          "actorId": "github:1",
+          "role": "PROJECT_ADMIN",
+          "source": "github_repository_permission",
+          "repository": "kj2whvbzjn-hue/tsugu",
+          "observedAt": "2026-09-12T05:12:02.308Z"
+        }
+      ],
+      "auditEvents": [
+        {
+          "id": "694cddfa-66bd-4b1c-a9d0-53b3eba64c3e",
+          "projectId": "9091aecc-d48f-4f9f-b7a6-874efd08597b",
+          "actorId": "github:1",
+          "actorLogin": "kj2whvbzjn-hue",
+          "action": "PROJECT_CREATE",
+          "recordRevision": 1,
+          "baseBlobSha": null,
+          "payloadHash": "sha256:2d2e34fb219e97e9873b762fc9658e781e24733df7e342d623a9083393d69290",
+          "at": "2026-09-12T05:12:02.308Z"
+        }
+      ]
+    },
+    "items": [
+      {
+        "id": "UI3-01",
+        "kind": "検証",
+        "title": "接続後の管理操作を収納し案件判断を前面化",
+        "body": "Fix\n接続完了後は接続先の短い状態表示とoverflow triggerのみを残し、JSON取込・GitHub再読込・接続解除等を常設しない。\n\nPASS\n接続後に常時表示される接続管理triggerは最大1個。\nJSONから新規取込・GitHubから再読込・接続解除はoverflow内に収納され、同時常設されない。\nmobile初回viewportで最初の案件カードの25%以上が視認できる。\n最初の案件カード上端 <= 0.75 viewport height。",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 v3 frozen acceptance"
+      },
+      {
+        "id": "UI3-02",
+        "kind": "検証",
+        "title": "余白とカード密度の最適化",
+        "body": "Fix\n接続領域・案件操作・タブ・項目カード・編集モーダルの無意味なvertical spaceを削減する。\n\nPASS\n説明不能な単一vertical gap > 32px が0件。\n同一セクション内の主要control間gap <= 20px。\n編集モーダルの連続field block間gap <= 20px。\n通常項目row/cardの高さ <= 144px on mobile。\n余白削減のためにtouch target 44x44 CSS px基準を破らない。",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 v3 frozen acceptance"
+      },
+      {
+        "id": "UI3-03",
+        "kind": "検証",
+        "title": "案件を開いた時に判断情報を先に見せる",
+        "body": "Fix\n案件名・現在状態に続き、目的・現在の焦点・未解決・次作業を管理操作より高い情報優先度で見せる。\n\nPASS\n案件タイトルからpurpose/focus/nextの判断情報へ到達する累積縦移動 <= 1 viewport。\n判断情報を見るために別タブ検索・ページreload・GitHub管理メニュー展開を要求しない。",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 v3 frozen acceptance"
+      },
+      {
+        "id": "UI3-04",
+        "kind": "検証",
+        "title": "関連先をID文字列ではなく意味のある参照として表示",
+        "body": "Fix\n関連先は存在確認済みstable IDへ解決し、ID・タイトル・種別・状態・relationをinline表示する。\n\nPASS\n関連先1件についてID・タイトル・種別・状態が元項目画面内で視認できる。\n存在しない関連先は未解決参照としてinline表示される。\n関連先の意味確認のための手動検索=0、IDコピー/記憶=0。",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 v3 frozen acceptance"
+      },
+      {
+        "id": "UI3-05",
+        "kind": "検証",
+        "title": "関連先1hopを直接開く",
+        "body": "Fix\n元項目Aの関連Bをchip/card等から直接開き、一覧検索を経由しない。\n\nPASS\nA→Bは最大1 user action。\nA→Bの手動検索=0。\nA→Bの項目一覧中間表示=0。\nA→Bのbrowser/document navigation=0。\nAの未保存編集値を保持したままBを参照できる。",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 v3 frozen acceptance"
+      },
+      {
+        "id": "UI3-06",
+        "kind": "検証",
+        "title": "関連連鎖A→B→Cと文脈復帰",
+        "body": "Fix\n関連先詳細内から次関連を直接たどり、breadcrumb/relation stack等で元項目へ戻れるようにする。\n\nPASS\nA→B→Cのforward操作は最大2 actions。\nA→B→Cの検索回数=0、IDコピー=0、一覧経由=0。\nC→Aは最大1 action。\nA→B→C→Aのbrowser/document navigation=0。\nAへ戻った時にAの未保存編集値が完全保持される。",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 v3 frozen acceptance"
+      },
+      {
+        "id": "UI3-07",
+        "kind": "検証",
+        "title": "関連参照の入力支援と検証",
+        "body": "Fix\n生ID自由入力だけでなくID/タイトル候補検索と存在検証を提供する。\n\nPASS\nIDまたはタイトルから候補を選択できる。\n保存前に存在しない参照を検出できる。\n候補選択後はstable IDを保持しつつ人間向け表示はタイトル中心になる。",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 v3 frozen acceptance"
+      },
+      {
+        "id": "UI3-08",
+        "kind": "検証",
+        "title": "既存使用性・runtime品質の維持",
+        "body": "Fix\nv3改善でC-04 v2の直接到達・scroll budget・削除再読込・runtime品質を悪化させない。\n\nPASS\nknown target lookup <= 2 viewports。\ntarget-to-primary-action <= 1 viewport。\none objective flow <= 3 viewports。\nsame-range retraversal=0。\nunhandled page errors=0、unexpected API 4xx/5xx=0、unexpected console errors=0。",
+        "status": "未確認",
+        "parentId": "",
+        "reason": "C-04 v3 frozen acceptance"
+      }
+    ]
+  },
+  "revision": 1,
+  "updatedAt": "2026-09-12T05:12:02.305Z"
+}

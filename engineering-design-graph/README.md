@@ -18,58 +18,95 @@
 - Project-scoped membership / policy persistence
 - Idempotency-Key for ChangeSet apply / AI request / export
 - PostgreSQL migrations / Project aggregate repository
-- transactional ChangeSet Application Service
-- PostgreSQL connection-scoped Unit of Work
-- Audit Log / Outbox / publisher worker boundary
+- transactional ChangeSet Application Service / connection-scoped Unit of Work
+- Audit Log / Outbox / exponential retry / DLQ-equivalent state
+- HTTP CloudEvents broker publisher with optional HMAC signature
+- Outbox scheduler with overlap protection and clean shutdown
+- structured JSON logging / Prometheus `/metrics` / OTLP HTTP exporter
+- in-memory or PostgreSQL distributed rate limit backend
+- `/health/live` / database-backed `/health/ready`
+- production runtime config / OIDC JWKS bootstrap / `pg.Pool` server entrypoint
+- Dockerfile / Kubernetes Deployment + Service + ConfigMap + Secret template
+- PostgreSQL backup/restore runbook and CI restore drill
 - Playwright UI E2E + authenticated HTTP E2E
 - GitHub Actions + PostgreSQL 16 integration checks
 
 ## Transaction boundary
 
-Production-oriented ChangeSet apply uses `EngineeringDesignApplicationService` and a connection-scoped PostgreSQL Unit of Work. The same checked-out database connection performs:
+Production-oriented ChangeSet apply uses `EngineeringDesignApplicationService` and a connection-scoped PostgreSQL Unit of Work. The same checked-out database connection performs `BEGIN` → ChangeSet/Project resolution → deterministic apply/validation → Artifact/ArtifactVersion/Relation persistence → Audit → Outbox → `COMMIT`. Any failure before commit executes `ROLLBACK`.
 
-1. `BEGIN`
-2. ChangeSet → Project resolution
-3. Project aggregate load
-4. deterministic ChangeSet apply / validation
-5. Artifact + immutable ArtifactVersion persistence
-6. current-version pointer / Relation / ChangeSet persistence
-7. Audit Log insert
-8. Outbox Event insert
-9. `COMMIT`
+## Authorization
 
-Any failure before commit executes `ROLLBACK`. `PostgresEngineeringDesignUnitOfWork` checks out one dedicated client from a pool so transaction control and all SQL statements cannot be split across pool connections.
+OIDC identifies the user. For project-scoped API calls, `project_members` is the authoritative role source; global `admin` is the only membership bypass. Supported roles are `viewer`, `editor`, `reviewer`, `architect`, `admin`.
 
-## Outbox
+## Outbox / broker
 
-`OutboxWorker` reads unpublished events, publishes them through a publisher adapter, and only after success marks them published. Failed publications remain pending for retry.
+`OutboxWorker` reads eligible unpublished events and publishes through a publisher adapter. `OutboxScheduler` prevents overlapping runs. Failed delivery updates retry metadata and eventually enters the DLQ-equivalent state after the configured retry limit. The HTTP broker adapter emits CloudEvents-style JSON and can attach an HMAC SHA-256 signature.
 
-## Project access
+## Observability
 
-`db/002_project_access.sql` adds project-scoped membership roles and JSON project policies. OIDC identity remains the authentication source; project membership supplies project-specific authorization.
+- `GET /health/live`: process liveness, no OIDC required
+- `GET /health/ready`: PostgreSQL readiness, no OIDC required
+- `GET /metrics`: Prometheus text format, no OIDC required
+- optional OTLP/HTTP periodic export via `OTLP_ENDPOINT`
+- structured logs contain request/user/project/route/status/duration fields but not request bodies, bearer tokens, DB passwords, broker secrets or telemetry authorization values
 
-## 起動
+## Production runtime
 
-静的UIはHTTPサーバーから `engineering-design-graph/index.html` を開けます。
+Required OIDC variables:
+
+```text
+OIDC_ISSUER
+OIDC_AUDIENCE
+OIDC_JWKS_URL
+```
+
+Database is configured by `DATABASE_URL` or standard `PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE`. Optional operations settings include:
+
+```text
+RATE_LIMIT_BACKEND=memory|postgres
+RATE_LIMIT_PER_MINUTE=120
+BROKER_URL
+BROKER_SECRET
+OUTBOX_INTERVAL_MS=5000
+OTLP_ENDPOINT
+OTLP_AUTHORIZATION
+OTLP_INTERVAL_MS=15000
+```
+
+Start the production HTTP service with Node after installing `pg`:
+
+```bash
+node engineering-design-graph/server-entry.mjs
+```
+
+Container/Kubernetes templates are under `engineering-design-graph/Dockerfile` and `engineering-design-graph/ops/k8s.yaml`. Deployment secrets must replace placeholders outside source control.
+
+## Backup / restore
+
+See `engineering-design-graph/ops/BACKUP_RESTORE.md`. The dedicated GitHub Actions workflow performs a real custom-format `pg_dump`, restores it into a clean database, and compares project/version counts before proceeding to Playwright.
+
+## Static UI
+
+For standalone UI-only inspection:
 
 ```bash
 python3 -m http.server 8080
 # http://localhost:8080/engineering-design-graph/
 ```
 
-## テスト
+## Tests
 
 ```bash
 npm run test:engineering-design
 npm run test:engineering-design:e2e
 ```
 
-専用GitHub Actions workflowは `engineering-design-graph/db/*.sql` をPostgreSQL 16へ順番に適用し、unit/API/AI/security/persistenceテストの後、Playwright desktop/mobile UI E2Eとauthenticated HTTP E2Eを実行します。HTTP E2EではChangeSetを実HTTPでStageし、transactional Application Service経由でApplyして保存済みrevision・Audit・Outboxまで確認します。
+The dedicated workflow validates migrations, unit/API/AI/security/operations tests, Docker image build, deployment manifest sanity, real `pg.Pool` round-trip, distributed PostgreSQL rate limiting, backup/restore, and Playwright desktop/mobile UI plus authenticated HTTP E2E.
 
-## 次段階
+## Remaining deployment decisions
 
-- production PostgreSQL pool/client wiring
-- Project membershipをHTTP Gatewayのproject-scoped authorizationへ接続
-- Outbox retry metadata / DLQ相当
-- structured logging / metrics / rate limit
-- backup / restore / deployment運用
+- choose and configure the managed broker product if HTTP delivery is insufficient
+- production secret manager integration strategy
+- image registry/release workflow and environment overlays
+- production RPO/RTO/SLO and alert thresholds

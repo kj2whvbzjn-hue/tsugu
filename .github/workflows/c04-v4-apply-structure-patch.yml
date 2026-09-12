@@ -25,8 +25,15 @@ jobs:
       - name: Apply structural UI patch
         run: |
           set -euo pipefail
-          python3 tools/c04_v4_structure_patch.py
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-v4-current-app.js
+          if grep -q 'C04_STRUCTURE_UI_V4' /tmp/c04-v4-current-app.js; then
+            cp /tmp/c04-v4-current-app.js /tmp/c04-v4-app.js
+            echo 'C-04 v4 patch already applied'
+          else
+            python3 tools/c04_v4_structure_patch.py
+          fi
           node --check /tmp/c04-v4-app.js
+          node --input-type=module --check < /tmp/c04-v4-app.js
           grep -q 'C04_STRUCTURE_UI_V4' /tmp/c04-v4-app.js
           grep -q 'function renderStructureMap' /tmp/c04-v4-app.js
           grep -q 'function renderDependencyTab' /tmp/c04-v4-app.js

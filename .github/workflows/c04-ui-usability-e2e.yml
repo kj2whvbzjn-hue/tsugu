@@ -1,159 +1,26 @@
-name: TSUGU C-04 UI Usability E2E
+name: TSUGU C-04 UI Usability v1 Historical
 
+# Historical v1 acceptance is intentionally preserved as FAIL evidence.
+# Current UI acceptance is TSUGU C-04 UI Usability v2 E2E.
+# Do not run v1 automatically against newer product sources because its
+# candidate patch assumptions belong to the pre-v2 implementation.
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'static/c04-ui-usability-plan.json'
-      - 'tests/c04-ui-usability.e2e.cjs.gz.b64.part*'
-      - '.github/workflows/c04-ui-usability-e2e.yml'
-      - 'static/**'
-      - 'change-records/C-04.json'
-      - 'docs/TSUGU_CORE_VNEXT_C04.md'
-  workflow_run:
-    workflows: ['Deploy TSUGU']
-    types: [completed]
   workflow_dispatch:
 
 permissions:
-  contents: write
-
-concurrency:
-  group: tsugu-c04-ui-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.run_id }}
-  cancel-in-progress: true
+  contents: read
 
 jobs:
-  ui-usability:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+  historical-reference:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-
-      - name: Decode and verify frozen C-04 E2E
+      - name: Verify preserved v1 evidence inputs
         shell: bash
         run: |
           set -euo pipefail
-          cat tests/c04-ui-usability.e2e.cjs.gz.b64.part00 \
-              tests/c04-ui-usability.e2e.cjs.gz.b64.part01 \
-              tests/c04-ui-usability.e2e.cjs.gz.b64.part02 \
-              tests/c04-ui-usability.e2e.cjs.gz.b64.part03 \
-              tests/c04-ui-usability.e2e.cjs.gz.b64.part04 \
-            | base64 --decode | gzip --decompress > tests/.c04-ui-usability.e2e.cjs
-          test "$(sha256sum tests/.c04-ui-usability.e2e.cjs | awk '{print $1}')" = "c3f1ab5d3872fafa2dfa946da3b1390e1d6ca75e410a5effce3138a1d7f9a9fb"
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('tests/.c04-ui-usability.e2e.cjs')
-          s=p.read_text()
-          s=s.replace("const sourceSha=process.env.GITHUB_SHA || '';\nif(!token)", "const sourceSha=process.env.GITHUB_SHA || '';\nconst targetUrl=process.env.C04_TARGET_URL || plan.target.publishedUrl;\nif(!token)")
-          s=s.replace("tempBranch,status:'RUNNING'", "tempBranch,targetUrl,status:'RUNNING'")
-          s=s.replace("await page.goto(`${plan.target.publishedUrl}?c04=${runId}`", "await page.goto(`${targetUrl}?c04=${runId}`")
-          p.write_text(s)
-          PY
-          node --check tests/.c04-ui-usability.e2e.cjs
-          test "$(sha256sum tests/.c04-ui-usability.e2e.cjs | awk '{print $1}')" = "998a299116a253f358aa2ba91a6bff9b310ede7fe2fe49de754aa1bea4008e45"
-          node -e "const p=require('./static/c04-ui-usability-plan.json'); if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==1)process.exit(1)"
-
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('tests/.c04-ui-usability.e2e.cjs')
-          s=p.read_text()
-          read_marker='async function readProject('
-          find_marker='async function findSavedByPrefix('
-          if read_marker not in s or find_marker not in s:
-              raise SystemExit('readback retry anchors not found')
-          s=s.replace(read_marker,'async function readProjectOnce(',1)
-          wrapper="async function readProject(...args){for(let i=0;i<12;i++){try{return await readProjectOnce(...args);}catch(e){if(!String(e&&e.message||e).includes('GitHub 404')||i===11)throw e;await new Promise(r=>setTimeout(r,500));}}}\n"
-          s=s.replace(find_marker,wrapper+find_marker,1)
-          p.write_text(s)
-          PY
-
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('tests/.c04-ui-usability.e2e.cjs')
-          s=p.read_text()
-          old1="for(let i=0;i<30&&(await listProjects()).length!==1;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,1);await page.getByText(/C-04 UI\\/使用性テスト計画 v1（取込）/).first().waitFor({state:'visible',timeout:15000});assert.equal(await page.getByText(/C-04 UI負荷・使用性テスト 196項目（取込）/).count(),0);"
-          new1="const visibleProjectTexts=async()=>page.locator('.project-list button').evaluateAll(els=>els.filter(e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none';}).map(e=>(e.textContent||'').trim()));let afterOne=[];for(let i=0;i<120;i++){afterOne=await visibleProjectTexts();if(afterOne.length===1&&afterOne[0].includes('C-04 UI/使用性テスト計画 v1（取込）')&&!afterOne[0].includes('196項目'))break;await page.waitForTimeout(250);}assert.equal(afterOne.length,1);for(let i=0;i<60&&(await listProjects()).length!==1;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,1);console.log('C04_AFTER_FIRST_DELETE',JSON.stringify({api:1,visible:afterOne}));"
-          old2="for(let i=0;i<30&&(await listProjects()).length!==0;i++)await page.waitForTimeout(250);assert.equal((await listProjects()).length,0);await page.getByText('まだ案件がありません。',{exact:true}).waitFor({state:'visible',timeout:15000});evidence.cleanup={remainingProjects:0};markScenario('UI-09','PASS');"
-          new2="for(let i=0;i<120&&(await listProjects()).length!==0;i++)await page.waitForTimeout(250);const finalApiCount=(await listProjects()).length;console.log('C04_FINAL_DELETE_API_COUNT',finalApiCount);assert.equal(finalApiCount,0);let afterZero=[];for(let i=0;i<120;i++){afterZero=await visibleProjectTexts();if(afterZero.length===0&&await page.getByText('まだ案件がありません。',{exact:true}).isVisible())break;await page.waitForTimeout(250);}console.log('C04_FINAL_DELETE_VISIBLE_PROJECTS',JSON.stringify(afterZero));evidence.cleanup={remainingProjects:finalApiCount,visibleProjects:afterZero};assert.equal(afterZero.length,0);await page.getByText('まだ案件がありません。',{exact:true}).waitFor({state:'visible',timeout:30000});markScenario('UI-09','PASS');"
-          old3="const planCard=page.getByText(/C-04 UI\\/使用性テスト計画 v1（取込）/).first();"
-          new3="const planCard=page.locator('.project-list button').filter({hasText:/C-04 UI\\/使用性テスト計画 v1（取込）/}).first();"
-          if old1 not in s or old2 not in s or old3 not in s:
-              raise SystemExit('delete/reload root-cause anchors not found')
-          s=s.replace(old1,new1).replace(old2,new2).replace(old3,new3)
-          p.write_text(s)
-          PY
-          node --check tests/.c04-ui-usability.e2e.cjs
-
-      - name: Build candidate Pages site
-        if: ${{ github.event_name == 'pull_request' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf _site
-          mkdir -p _site
-          cp -a static/. _site/
-          base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
-          rm -f _site/app.js.gz.b64
-          node --check _site/app.js
-
-          # Verified candidate repair: bypass browser cache for GitHub GETs only.
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('_site/app.js')
-          s=p.read_text()
-          old="async function gh(path,init={},allow404=false){const r=await fetch(API+path,{...init,headers:{...ghHeaders(),...(init.headers||{})}});"
-          new="async function gh(path,init={},allow404=false){const method=String(init.method||'GET').toUpperCase();const r=await fetch(API+path,{...init,...(method==='GET'?{cache:'no-store'}:{}),headers:{...ghHeaders(),...(init.headers||{})}});"
-          if old not in s:
-              raise SystemExit('gh fetch candidate anchor not found')
-          s=s.replace(old,new,1)
-          p.write_text(s)
-          PY
-          node --check _site/app.js
-          grep -q "method==='GET'?{cache:'no-store'}" _site/app.js
-          if grep -q 'recordLoadGeneration' _site/app.js; then
-            echo 'unexpected generation guard in no-store-only candidate' >&2
-            exit 1
-          fi
-          gzip -n -9 -c _site/app.js | base64 -w0 > c04-app-fixed.gz.b64
-          printf '\n' >> c04-app-fixed.gz.b64
-          echo "C04_FIXED_APP_JS_SHA256=$(sha256sum _site/app.js | awk '{print $1}')"
-          echo "C04_FIXED_PAYLOAD_SHA256=$(sha256sum c04-app-fixed.gz.b64 | awk '{print $1}')"
-
-      - name: Install Playwright Chromium
-        run: |
-          npm init -y >/dev/null 2>&1
-          npm install --save-dev playwright@1.55.0
-          npx playwright install --with-deps chromium
-
-      - name: Register frozen plan and execute UI usability tests
-        env:
-          GH_TOKEN_E2E: ${{ github.token }}
-          C04_TARGET_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4173/' || 'https://kj2whvbzjn-hue.github.io/tsugu/' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            python3 -m http.server 4173 --directory _site >/tmp/c04-http.log 2>&1 &
-            SERVER_PID=$!
-            trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
-            for i in $(seq 1 30); do
-              if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
-              sleep 1
-            done
-          fi
-          node tests/.c04-ui-usability.e2e.cjs
-
-      - name: Upload C-04 evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: c04-ui-usability-evidence-${{ github.run_id }}
-          path: |
-            c04-ui-usability-evidence.json
-            c04-mobile.png
-            c04-desktop.png
-            c04-app-fixed.gz.b64
-          if-no-files-found: ignore
+          node -e "const p=require('./static/c04-ui-usability-plan.json');if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==1)process.exit(1)"
+          test "$(cat tests/c04-ui-usability.e2e.cjs.gz.b64.part00 tests/c04-ui-usability.e2e.cjs.gz.b64.part01 tests/c04-ui-usability.e2e.cjs.gz.b64.part02 tests/c04-ui-usability.e2e.cjs.gz.b64.part03 tests/c04-ui-usability.e2e.cjs.gz.b64.part04 | base64 --decode | gzip --decompress | sha256sum | awk '{print $1}')" = "c3f1ab5d3872fafa2dfa946da3b1390e1d6ca75e410a5effce3138a1d7f9a9fb"
+          echo 'Historical FAIL run: 34657670861'
+          echo 'Historical source SHA: 3050f205e2408b0c02592cf6e1a1db44cc56d452'
+          echo 'Current acceptance workflow: .github/workflows/c04-ui-usability-v2-e2e.yml'

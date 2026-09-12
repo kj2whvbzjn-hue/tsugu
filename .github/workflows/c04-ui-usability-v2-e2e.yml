@@ -1,5 +1,5 @@
 name: TSUGU C-04 UI Usability v2 E2E
-# Acceptance criteria remain frozen; rerun after expected-empty-workspace harness classification.
+# Acceptance criteria remain frozen; long-text fullscreen checks are supplemental regressions.
 
 on:
   pull_request:
@@ -7,11 +7,16 @@ on:
     paths:
       - 'static/c04-ui-usability-plan-v2.json'
       - 'tests/c04-ui-usability-v2.e2e.cjs'
+      - 'tests/longtext-fullscreen.e2e.cjs'
       - '.github/workflows/c04-ui-usability-v2-e2e.yml'
+      - '.github/workflows/pages.yml'
       - 'static/app.js.gz.b64'
       - 'static/styles.css'
+      - 'static/longtext-focus.css'
+      - 'static/longtext-focus.js'
       - 'static/index.html'
       - 'change-records/C-04.json'
+      - 'change-records/C-04-LONGTEXT-01.json'
   workflow_run:
     workflows: ['Deploy TSUGU']
     types: [completed]
@@ -40,6 +45,12 @@ jobs:
           set -euo pipefail
           node -e "const p=require('./static/c04-ui-usability-plan-v2.json');if(p.status!=='FROZEN_BEFORE_EXECUTION'||p.version!==2)process.exit(1)"
           node --check tests/c04-ui-usability-v2.e2e.cjs
+          node --check tests/longtext-fullscreen.e2e.cjs
+          node --check static/longtext-focus.js
+          grep -q 'longtext-focus.css' static/index.html
+          grep -q 'longtext-focus.js' static/index.html
+          grep -q 'longtext-editor-backdrop' static/longtext-focus.css
+          grep -q 'textarea:not(.code)' static/longtext-focus.js
           base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-app.js
           node --check /tmp/c04-app.js
           grep -q "cache:'no-store'" /tmp/c04-app.js
@@ -61,6 +72,7 @@ jobs:
           base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
           rm -f _site/app.js.gz.b64
           node --check _site/app.js
+          node --check _site/longtext-focus.js
 
       - name: Install Playwright Chromium
         run: |
@@ -85,6 +97,7 @@ jobs:
             done
           fi
           node tests/c04-ui-usability-v2.e2e.cjs
+          node tests/longtext-fullscreen.e2e.cjs
 
       - name: Upload C-04 v2 evidence
         if: always()
@@ -95,4 +108,6 @@ jobs:
             c04-ui-usability-v2-evidence.json
             c04-v2-mobile.png
             c04-v2-desktop.png
+            longtext-fullscreen-evidence.json
+            longtext-fullscreen-mobile.png
           if-no-files-found: ignore

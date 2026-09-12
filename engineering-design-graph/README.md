@@ -15,11 +15,12 @@
 - `/api/v1` service boundary / HTTP Gateway
 - OIDC RS256/JWKS verification
 - RBAC (`viewer`, `editor`, `reviewer`, `architect`, `admin`)
+- Project-scoped membership / policy persistence
 - Idempotency-Key for ChangeSet apply / AI request / export
 - PostgreSQL migrations / Project aggregate repository
 - transactional ChangeSet Application Service
+- PostgreSQL connection-scoped Unit of Work
 - Audit Log / Outbox / publisher worker boundary
-- Project membership / project policy persistence
 - Playwright UI E2E + authenticated HTTP E2E
 - GitHub Actions + PostgreSQL 16 integration checks
 
@@ -27,16 +28,17 @@
 
 Production-oriented ChangeSet apply uses `EngineeringDesignApplicationService` and a connection-scoped PostgreSQL Unit of Work. The same checked-out database connection performs:
 
-1. ChangeSet → Project resolution
-2. Project aggregate load
-3. deterministic ChangeSet apply / validation
-4. Artifact + immutable ArtifactVersion persistence
-5. current-version pointer / Relation / ChangeSet persistence
-6. Audit Log insert
-7. Outbox Event insert
-8. commit
+1. `BEGIN`
+2. ChangeSet → Project resolution
+3. Project aggregate load
+4. deterministic ChangeSet apply / validation
+5. Artifact + immutable ArtifactVersion persistence
+6. current-version pointer / Relation / ChangeSet persistence
+7. Audit Log insert
+8. Outbox Event insert
+9. `COMMIT`
 
-Any failure before commit rolls back the database transaction. `PostgresEngineeringDesignUnitOfWork` checks out one dedicated client from a pool so `BEGIN`, all SQL statements, and `COMMIT/ROLLBACK` cannot be split across pool connections.
+Any failure before commit executes `ROLLBACK`. `PostgresEngineeringDesignUnitOfWork` checks out one dedicated client from a pool so transaction control and all SQL statements cannot be split across pool connections.
 
 ## Outbox
 
@@ -63,3 +65,11 @@ npm run test:engineering-design:e2e
 ```
 
 専用GitHub Actions workflowは `engineering-design-graph/db/*.sql` をPostgreSQL 16へ順番に適用し、unit/API/AI/security/persistenceテストの後、Playwright desktop/mobile UI E2Eとauthenticated HTTP E2Eを実行します。HTTP E2EではChangeSetを実HTTPでStageし、transactional Application Service経由でApplyして保存済みrevision・Audit・Outboxまで確認します。
+
+## 次段階
+
+- production PostgreSQL pool/client wiring
+- Project membershipをHTTP Gatewayのproject-scoped authorizationへ接続
+- Outbox retry metadata / DLQ相当
+- structured logging / metrics / rate limit
+- backup / restore / deployment運用

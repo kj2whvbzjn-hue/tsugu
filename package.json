@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/workflow.test.mjs tests/engineering-design-graph.test.mjs tests/engineering-design-api.test.mjs tests/engineering-design-ai-package.test.mjs tests/engineering-design-security-http.test.mjs",
-    "test:engineering-design": "node --test tests/engineering-design-graph.test.mjs tests/engineering-design-api.test.mjs tests/engineering-design-ai-package.test.mjs tests/engineering-design-security-http.test.mjs",
+    "test": "node --test tests/workflow.test.mjs tests/engineering-design-graph.test.mjs tests/engineering-design-api.test.mjs tests/engineering-design-ai-package.test.mjs tests/engineering-design-security-http.test.mjs tests/engineering-design-persistence.test.mjs",
+    "test:engineering-design": "node --test tests/engineering-design-graph.test.mjs tests/engineering-design-api.test.mjs tests/engineering-design-ai-package.test.mjs tests/engineering-design-security-http.test.mjs tests/engineering-design-persistence.test.mjs",
     "test:engineering-design:e2e": "node tests/engineering-design-graph.e2e.cjs && node tests/engineering-design-http.e2e.cjs",
     "build": "bash .github/scripts/build-pages-site.sh _site",
     "test:ui": "node tests/workflow-ui.e2e.cjs && node tests/workflow-import-ui.e2e.cjs"

@@ -64,6 +64,13 @@ jobs:
           psql -v ON_ERROR_STOP=1 -c "insert into outbox_events(aggregate_type,aggregate_id,event_type,payload) values ('artifact','REQ-SMOKE','artifact.updated','{}'::jsonb);"
       - name: Run Engineering Design Graph domain, API, AI, security and package tests
         run: npm test
+      - name: Validate container and deployment manifests
+        run: |
+          docker build -f engineering-design-graph/Dockerfile -t engineering-design-graph:ci .
+          grep -q '/health/ready' engineering-design-graph/ops/k8s.yaml
+          grep -q '/health/live' engineering-design-graph/ops/k8s.yaml
+          grep -q 'REPLACE_AT_DEPLOY_TIME' engineering-design-graph/ops/k8s.yaml
+          ! grep -Eq '(postgres(ql)?://[^ ]+:[^ ]+@|BEGIN PRIVATE KEY|AKIA[0-9A-Z]{16})' engineering-design-graph/ops/k8s.yaml
       - name: Install PostgreSQL integration dependency
         run: npm install --no-save --package-lock=false pg@8.16.3
       - name: Run pooled runtime against real PostgreSQL

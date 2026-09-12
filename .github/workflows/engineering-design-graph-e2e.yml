@@ -4,10 +4,8 @@ on:
     branches: [main]
     paths:
       - 'engineering-design-graph/**'
-      - 'tests/engineering-design-graph*.mjs'
-      - 'tests/engineering-design-graph*.cjs'
-      - 'tests/engineering-design-api.test.mjs'
-      - 'tests/engineering-design-ai-package.test.mjs'
+      - 'tests/engineering-design*.mjs'
+      - 'tests/engineering-design*.cjs'
       - 'package.json'
       - '.github/workflows/engineering-design-graph-e2e.yml'
   push:
@@ -15,10 +13,8 @@ on:
       - 'feature/engineering-design-graph-mvp'
     paths:
       - 'engineering-design-graph/**'
-      - 'tests/engineering-design-graph*.mjs'
-      - 'tests/engineering-design-graph*.cjs'
-      - 'tests/engineering-design-api.test.mjs'
-      - 'tests/engineering-design-ai-package.test.mjs'
+      - 'tests/engineering-design*.mjs'
+      - 'tests/engineering-design*.cjs'
       - 'package.json'
       - '.github/workflows/engineering-design-graph-e2e.yml'
   workflow_dispatch:
@@ -54,7 +50,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -f engineering-design-graph/db/001_initial.sql
           test "$(psql -h 127.0.0.1 -U postgres -d edg -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('projects','artifacts','artifact_versions','relations','change_sets','change_set_items','validation_issues','ai_candidates','reviews','readiness_snapshots','audit_logs','outbox_events')")" = "12"
           psql -h 127.0.0.1 -U postgres -d edg -v ON_ERROR_STOP=1 -c "insert into projects(name) values ('CI migration smoke');"
-      - name: Run Engineering Design Graph domain, API, AI and package tests
+      - name: Run Engineering Design Graph domain, API, AI, security and package tests
         run: npm test
       - name: Install Playwright Chromium
         run: |
@@ -69,7 +65,7 @@ jobs:
           done
           cat /tmp/engineering-design-graph-server.log
           exit 1
-      - name: Run Playwright E2E on desktop and mobile
+      - name: Run Playwright UI and authenticated HTTP E2E
         run: npm run test:engineering-design:e2e
       - name: Upload E2E evidence
         if: always()

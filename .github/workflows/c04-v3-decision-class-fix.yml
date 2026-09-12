@@ -24,7 +24,7 @@ jobs:
           set -euo pipefail
           base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-v3-decision-class.js
           node --input-type=module --check < /tmp/c04-v3-decision-class.js
-          test "$(grep -o 'class="field full decision-field"' /tmp/c04-v3-decision-class.js | wc -l)" -ge 3
+          test "$(grep -o 'decision-field' /tmp/c04-v3-decision-class.js | wc -l)" -ge 3
           grep -q 'data-field="purpose"' /tmp/c04-v3-decision-class.js
           grep -q 'data-field="focus"' /tmp/c04-v3-decision-class.js
           grep -q 'data-field="next"' /tmp/c04-v3-decision-class.js

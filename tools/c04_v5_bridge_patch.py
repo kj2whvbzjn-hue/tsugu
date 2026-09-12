@@ -1,6 +1,7 @@
 from pathlib import Path
 import base64, gzip
 
+# v5 bridge materializer: intentionally idempotent; touched to trigger the bridge workflow after v5 assets/tests were added.
 p=Path('static/app.js.gz.b64')
 raw=gzip.decompress(base64.b64decode(p.read_bytes())).decode('utf-8')
 marker='/* C04_BOX_REGISTRY_V5_BRIDGE */'

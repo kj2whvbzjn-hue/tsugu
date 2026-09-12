@@ -1,0 +1,28 @@
+{
+  "schema_version": "tsugu-project-import/1",
+  "projects": [
+    {
+      "name": "新サービスの受付機能",
+      "project_context": {"purpose": "利用者が依頼を登録できるようにする", "summary": "入力・送信・保存結果の確認までを実装する"},
+      "architecture_nodes": [{"id": "ARCH-1", "name": "受付", "parent_id": ""}],
+      "work_boxes": [{"id": "BOX-1", "node_id": "ARCH-1", "title": "受付画面", "body": "依頼内容と連絡先を入力する画面"}],
+      "tasks": [
+        {"id": "TASK-1", "box_id": "BOX-1", "title": "受付仕様を整理する", "acceptance_criteria": "入力項目・必須条件・エラー表示が明文化されている", "execution_order": 1, "work_type": "DEVELOPMENT_ONLY", "requires_human_approval": true},
+        {"id": "TASK-2", "box_id": "BOX-1", "title": "受付画面を実装する", "acceptance_criteria": "登録後に再読込しても受付内容が一致する", "execution_order": 2, "depends_on": ["TASK-1"], "work_type": "SOURCE_UPDATE", "requires_human_approval": true}
+      ],
+      "checks": [
+        {"id": "CHECK-START", "title": "作業計画を確認する", "gate": "Implementation", "target_type": "Project", "target_id": "$project"},
+        {"id": "CHECK-TASK-1", "title": "仕様書の内容を確認する", "gate": "Completion", "target_type": "Task", "target_id": "TASK-1"},
+        {"id": "CHECK-TASK-2", "title": "保存と再読込を確認する", "gate": "Completion", "target_type": "Task", "target_id": "TASK-2"}
+      ],
+      "project_rules": [{"id": "RULE-1", "title": "完了条件", "text": "実施結果と証拠を記録してから完了する"}]
+    },
+    {
+      "name": "運用手順の整備",
+      "project_context": {"purpose": "新しい担当者が同じ手順で運用できるようにする"},
+      "architecture_nodes": [{"id": "ARCH-1", "name": "運用"}],
+      "work_boxes": [{"id": "BOX-1", "node_id": "ARCH-1", "title": "操作手順書"}],
+      "tasks": [{"id": "TASK-1", "box_id": "BOX-1", "title": "操作手順を作成する", "acceptance_criteria": "第三者が手順に沿って新規案件を登録できる"}]
+    }
+  ]
+}

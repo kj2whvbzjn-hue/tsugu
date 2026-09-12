@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node --test tests/workflow.test.mjs",
     "build": "bash .github/scripts/build-pages-site.sh _site",
-    "test:ui": "node tests/workflow-ui.e2e.cjs"
+    "test:ui": "node tests/workflow-ui.e2e.cjs && node tests/workflow-import-ui.e2e.cjs"
   },
-  "devDependencies": {"playwright": "1.55.0"}
+  "devDependencies": {
+    "playwright": "1.55.0"
+  }
 }

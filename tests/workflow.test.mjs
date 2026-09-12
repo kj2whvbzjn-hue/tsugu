@@ -33,3 +33,53 @@ test('missing canonical file cannot silently recreate saved project',async()=>{c
 test('public data repository denied and failed connection clears actor',async()=>{const api=mockGit(),git=new GitStore(api.fetch);api.private=false;await rejects(()=>git.connect({owner:'example',repo:'private',branch:'work',token:'test-token'}),/Private/);assert.equal(git.actor,null);assert.equal(git.connection,null);});
 test('SOURCE_UPDATE completion requires a pinned Applied implementation record',async()=>{let p=await ready();p=await D.upsert(p,'tasks',{...p.tasks[0],work_type:'SOURCE_UPDATE'},human);p=await D.approveTask(p,'TASK-1',human);p=await D.transition(p,'implementation',human);p=await D.changeTaskStatus(p,'TASK-1','Doing',human);p=await add(p,'checks',{title:'実装確認',gate:'Completion',target_type:'Task',target_id:'TASK-1',status:'Passed',result:'PASS',evidence:'test log'});await rejects(()=>D.changeTaskStatus(p,'TASK-1','Done',human),/実装記録/);p=await add(p,'implementation_records',{title:'適用',task_ids:['TASK-1'],repository:'https://github.com/example/source',commit_sha:'a'.repeat(40),result:'Applied',evidence:'fixed commit and test log'});p=await D.changeTaskStatus(p,'TASK-1','Done',human);assert.equal(p.tasks[0].status,'Done');});
 test('full-record validation rejects Done with no task completion checks',async()=>{const p=await seed();p.tasks[0].requires_human_approval=false;p.tasks[0].status='Done';await rejects(()=>D.validate(p),/Completion Check/);});
+
+// Registration is a distinct planning format; it cannot import execution authority.
+const I=await import('../static/workflow-import.mjs');
+const {readFile}=await import('node:fs/promises');
+const importExample=await readFile(new URL('../static/project-import-example.json',import.meta.url),'utf8');
+const registration=projects=>JSON.stringify({schema_version:I.IMPORT_SCHEMA,projects});
+test('published sample imports two independent projects with preserved references and initial authority',async()=>{
+ const projects=await I.prepareImport(importExample,human);assert.equal(projects.length,2);
+ assert.notEqual(projects[0].workspace.id,projects[1].workspace.id);
+ for(const p of projects){await D.validate(p);assert.equal(p.revision,0);assert.equal(p.workflow.stage,'Discovery');assert.equal(p.lifecycle.status,'Active');assert.ok(p.tasks.every(t=>t.status==='Todo'&&t.approval.status==='Pending'));assert.equal(p.history[0].by,human.login);}
+ assert.equal(projects[0].checks[0].target_id,projects[0].workspace.id);assert.deepEqual(projects[0].tasks[1].depends_on,['TASK-1']);
+ const again=await I.prepareImport(importExample,human);assert.notEqual(again[0].workspace.id,projects[0].workspace.id);
+});
+test('registration accepts minimal input and BOM, fills defaults but rejects wrong types and unknown fields',async()=>{
+ const [p]=await I.prepareImport('\ufeff'+registration([{name:'最小'}]),human);assert.equal(p.workspace.name,'最小');assert.equal(p.tasks.length,0);
+ for(const project of [{name:4},{name:'型',project_context:{purpose:5}},{name:'未知',purpose:'x'},{name:'承認',workflow:{stage:'Completed'}}])await assert.rejects(()=>I.prepareImport(registration([project]),human));
+ await assert.rejects(()=>I.prepareImport('not json',human),/構文/);await assert.rejects(()=>I.prepareImport(JSON.stringify(p),human),/新規登録用/);
+ await assert.rejects(()=>I.prepareImport(registration([{name:'最小'}]),null),/接続/);
+});
+test('registration rejects evidence and approval injection without silently resetting claims',async()=>{
+ for(const [collection,row] of [ ['tasks',{approval:{status:'Approved'}}],['tasks',{status:'Done'}],['checks',{status:'Passed'}],['checks',{checked_by:'someone'}],['checks',{result:'PASS'}],['decisions',{status:'Approved'}],['specifications',{status:'Verified'}],['specification_candidates',{status:'approved'}]]){
+  const input=JSON.parse(importExample);const p=input.projects[0];p[collection]??=[{id:'R',title:'記録'}];Object.assign(p[collection][0],row);
+  await assert.rejects(()=>I.prepareImport(JSON.stringify(input),human));
+ }
+ for(const key of ['implementation_records','artifacts','system_events','history','authority','items','core'])await assert.rejects(()=>I.prepareImport(registration([{name:'不可',[key]:[]}]),human),/未対応/);
+});
+test('registration validates entire batch and forward references, missing parents, IDs and cycles',async()=>{
+ let input=JSON.parse(importExample);input.projects[0].tasks.reverse();await I.prepareImport(JSON.stringify(input),human);
+ input.projects[1].tasks[0].depends_on=['missing'];await assert.rejects(()=>I.prepareImport(JSON.stringify(input),human),/案件 2.*参照先/);
+ for(const change of [p=>p.tasks.push({...p.tasks[0]}),p=>p.tasks[0].depends_on=['TASK-2'],p=>delete p.work_boxes[0].node_id,p=>p.tasks[0].requires_human_approval='true']){
+  input=JSON.parse(importExample);change(input.projects[0]);await assert.rejects(()=>I.prepareImport(JSON.stringify(input),human));
+ }
+});
+test('registration limits size, record count, project count and duplicate names',async()=>{
+ for(const projects of [[],Array.from({length:21},(_,i)=>({name:'P'+i})),[{name:'same'},{name:'same'}],[{name:'多い',architecture_nodes:Array.from({length:1001},(_,i)=>({id:'N'+i,name:'N'}))}]])await assert.rejects(()=>I.prepareImport(registration(projects),human));
+ await assert.rejects(()=>I.prepareImport(' '.repeat(I.MAX_IMPORT_BYTES+1),human),/2MB/);
+});
+test('batch writes all validated projects once and returns per-project commit receipts',async()=>{
+ const projects=await I.prepareImport(importExample,human),receipt=I.importReceipt(projects),saved=[];
+ const store={verify:async()=>human,connection:{owner:'test',repo:'private',branch:'work'},save:async(p,sha)=>{assert.equal(sha,'');saved.push(p.workspace.id);return {project:{...p,revision:1},commit_sha:'a'.repeat(40)};}};
+ await I.registerBatch(store,projects,receipt);assert.equal(saved.length,2);assert.ok(receipt.entries.every(e=>e.status==='登録済み'));assert.equal(receipt.connection.branch,'work');
+ await assert.rejects(()=>I.registerBatch(store,projects,receipt),/実行済み/);assert.equal(saved.length,2);
+});
+test('batch prevalidation writes nothing on invalid later project; partial failure stops and cannot retry',async()=>{
+ const projects=await I.prepareImport(registration([{name:'A'},{name:'B'},{name:'C'}]),human);let calls=0;
+ const store={verify:async()=>human,connection:{branch:'main'},save:async p=>{calls++;if(calls===2)throw new Error('保存結果不明');return {project:{...p,revision:1},commit_sha:'a'.repeat(40)};}};
+ const bad=D.clone(projects);bad[2].schema_version='bad';await assert.rejects(()=>I.registerBatch(store,bad,I.importReceipt(bad)));assert.equal(calls,0);
+ const receipt=I.importReceipt(projects);await I.registerBatch(store,projects,receipt);assert.equal(calls,2);assert.deepEqual(receipt.entries.map(e=>e.status),['登録済み','要確認','未登録']);
+ await assert.rejects(()=>I.registerBatch(store,projects,receipt));assert.equal(calls,2);assert.ok(receipt.entries[1].message.includes('不明'));
+});

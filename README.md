@@ -39,3 +39,14 @@ node tests/workflow-ui.e2e.cjs
 UIテストは状態を保持するGitHub API fixtureを使用します。Privateの本番データへテストを書き込みません。認証・Git保存の実接続確認や、公開後の実機確認と区別してください。
 
 参照：`docs/WORKFLOW_HARD_CUT.md`、`docs/TSUGU_PROJECT_REFERENCE.md`、`AI_CONNECTION.md`、`DEPLOYMENT.md`。
+
+## JSON一括取り込みと取り扱い説明書
+
+案件一覧の「JSON一括取り込み」で、新規登録用 `tsugu-project-import/1` のファイルまたは本文から1〜20案件を登録できます。既存案件を上書きせず、新しい案件IDで検討工程から開始します。全件検証後、案件ごとに保存し、失敗時は停止して結果を表示します。
+
+- [公開の取り扱い説明書](https://kj2whvbzjn-hue.github.io/tsugu/manual.html)
+- [登録用サンプル](static/project-import-example.json)
+- `static/workflow-import.mjs`: 入力検証・初期値補完・一括登録結果
+- `tests/workflow-import-ui.e2e.cjs`: 複数案件登録、再読込、途中失敗、説明書の受入検証
+
+案件エクスポート形式および旧JSONの直接取り込みは行いません。登録対象と手順は説明書を参照してください。実際のPrivateリポジトリへの書込み受入は別途必要です。

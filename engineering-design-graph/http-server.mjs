@@ -28,8 +28,8 @@ export function createHttpGateway({api=createApiService(),verifyBearer,auditOutb
     try{
       principal=await verifyBearer(req.headers.authorization);
       const rate=rateLimiter.check(principal.userId||'anonymous');if(!rate.allowed)throw Object.assign(new Error('Rate limit exceeded'),{status:429,code:'RATE_LIMITED',rate});
-      const permission=permissionForRequest(method,url.pathname);authorize(principal,permission);
-      projectId=resolveProjectId(api,url.pathname);if(projectAccessRepository&&projectId)await authorizeProject({principal,projectId,permission,accessRepository:projectAccessRepository});
+      const permission=permissionForRequest(method,url.pathname);projectId=resolveProjectId(api,url.pathname);
+      if(projectAccessRepository&&projectId)await authorizeProject({principal,projectId,permission,accessRepository:projectAccessRepository});else authorize(principal,permission);
       if(method!=='GET'&&method!=='HEAD')body=await readJson(req);
       const idem=idempotency.appliesTo(method,url.pathname)?idempotency.lookup({principal,method,path:url.pathname,key:req.headers['idempotency-key'],body}):null;
       if(idem?.hit){const cached=idem.response;status=cached.status;await auditOutbox.record({principal,method,path:url.pathname,status,requestId,body,replayed:true});send(res,status,{'x-request-id':requestId,'idempotency-replayed':'true',...cached.headers},cached.body);return}

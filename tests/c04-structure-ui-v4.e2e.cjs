@@ -63,7 +63,7 @@ function scenarioIds(){return plan.acceptance.map(x=>x.id)}
     let inspector=page.locator('.core-inspector');
     assert.match(await inspector.innerText(),/CHILD_NODE/);
     assert.match(await inspector.innerText(),/Root Architecture/);
-    await inspector.getByRole('button',{name:'Root Architecture',exact:true}).click();
+    await inspector.getByRole('button',{name:/Root Architecture/,exact:false}).click();
     inspector=page.locator('.core-inspector');
     const rootText=await inspector.innerText();assert.match(rootText,/Branch A/);assert.match(rootText,/Branch B/);
     mark('UI4-01','PASS',{architectureNodes:3,branches:2});
@@ -79,7 +79,7 @@ function scenarioIds(){return plan.acceptance.map(x=>x.id)}
     assert.ok(await page.locator('.workbox-children [data-workbox-id]').count()>=1,'child workbox should be nested');
     await page.getByRole('button',{name:'Box Alpha Child',exact:true}).first().click();
     inspector=page.locator('.core-inspector');assert.match(await inspector.innerText(),/CHILD_WORKBOX/);assert.match(await inspector.innerText(),/Box Alpha/);
-    await inspector.getByRole('button',{name:'Box Alpha',exact:true}).click();
+    await inspector.getByRole('button',{name:/Box Alpha/,exact:false}).click();
     assert.match(await page.locator('.core-inspector').innerText(),/Box Alpha Child/);
     mark('UI4-02','PASS',{architectureBidirectional:true,workBoxBidirectional:true});
     mark('UI4-03','PASS',{workBoxes:3,nested:1});

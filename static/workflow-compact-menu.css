@@ -1,3 +1,4 @@
+#app main{padding-top:0}
 #tsugu-workspace-tools.tsugu-workspace-tools{position:fixed;top:66px;right:8px;left:auto;z-index:90;width:44px;height:44px;margin:0;padding:0;border:0;border-radius:12px;background:transparent;box-shadow:none;overflow:visible}
 #tsugu-workspace-tools .tsugu-workspace-menu-trigger{display:flex;align-items:center;justify-content:center;width:44px;height:44px;min-width:44px;padding:0;border-radius:12px;font-size:28px;line-height:1;background:#fff;border:1px solid #cbd8d4;box-shadow:0 4px 12px rgba(25,55,54,.14)}
 #tsugu-workspace-tools .tsugu-workspace-menu-content{position:absolute;top:50px;right:0;width:min(720px,calc(100vw - 16px));max-height:calc(100dvh - 124px);overflow:auto;padding:0;background:#fff;border:1px solid #cedbd6;border-radius:12px;box-shadow:0 16px 36px rgba(18,41,40,.22);opacity:0;pointer-events:none;transform:translateY(-6px);transition:opacity .14s ease,transform .14s ease}

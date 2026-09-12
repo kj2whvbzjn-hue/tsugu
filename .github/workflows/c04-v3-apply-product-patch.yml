@@ -16,12 +16,26 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+      - name: Stabilize editor source anchor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/c04_v3_patch.py')
+          s=p.read_text()
+          needle="new_editor = '''"
+          if needle not in s:
+              raise SystemExit('new_editor anchor missing')
+          insert="old_editor = text[text.index(\"function startItemEditor(existing=null){\"):text.index(\"function deleteItem(id){\", text.index(\"function startItemEditor(existing=null){\"))]\n"
+          if insert not in s:
+              s=s.replace(needle,insert+needle,1)
+          p.write_text(s)
+          PY
       - name: Apply deterministic product patch
         run: python tools/c04_v3_patch.py
       - name: Verify and commit
         run: |
           git diff --check
-          git diff -- static/app.js.gz.b64 static/styles.css
+          git diff --stat -- static/app.js.gz.b64 static/styles.css
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add static/app.js.gz.b64 static/styles.css

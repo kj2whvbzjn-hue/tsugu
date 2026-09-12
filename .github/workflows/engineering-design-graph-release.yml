@@ -1,0 +1,43 @@
+name: Engineering Design Graph Image Release
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to build
+        required: true
+        default: manual
+      publish:
+        description: Push image to GHCR
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  packages: write
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build image
+        run: docker build -f engineering-design-graph/Dockerfile -t ghcr.io/${{ github.repository_owner }}/tsugu-engineering-design-graph:${{ inputs.image_tag }} .
+      - name: Smoke image metadata
+        run: |
+          docker image inspect ghcr.io/${{ github.repository_owner }}/tsugu-engineering-design-graph:${{ inputs.image_tag }} >/dev/null
+          docker save ghcr.io/${{ github.repository_owner }}/tsugu-engineering-design-graph:${{ inputs.image_tag }} -o /tmp/engineering-design-graph-image.tar
+          sha256sum /tmp/engineering-design-graph-image.tar > /tmp/engineering-design-graph-image.tar.sha256
+      - name: Log in to GHCR
+        if: ${{ inputs.publish }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish image
+        if: ${{ inputs.publish }}
+        run: docker push ghcr.io/${{ github.repository_owner }}/tsugu-engineering-design-graph:${{ inputs.image_tag }}
+      - name: Upload image checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineering-design-graph-image-${{ inputs.image_tag }}
+          path: /tmp/engineering-design-graph-image.tar.sha256

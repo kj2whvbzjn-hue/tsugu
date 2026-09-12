@@ -1,0 +1,12 @@
+{
+  "name": "tsugu-workflow",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/workflow.test.mjs",
+    "build": "bash .github/scripts/build-pages-site.sh _site",
+    "test:ui": "node tests/workflow-ui.e2e.cjs"
+  },
+  "devDependencies": {"playwright": "1.55.0"}
+}

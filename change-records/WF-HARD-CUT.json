@@ -1,0 +1,11 @@
+{
+  "task_id": "WF-HARD-CUT",
+  "user_instruction": "解析した工程管理をTSUGUへ移植。旧システムはハードカットし依存を残さない。",
+  "base_commit": "290b50609e9063a29489285f0406eb1ec4a37737",
+  "tested_commit": "bc82a768842defa0ede7d3747469332b6ddadb78",
+  "pull_request": "https://github.com/kj2whvbzjn-hue/tsugu/pull/32",
+  "verification_run": "https://github.com/kj2whvbzjn-hue/tsugu/actions/runs/34696873289",
+  "verification": {"domain_tests": 24, "domain_result": "PASS", "artifact_build": "PASS", "browser_workflow": "PASS", "github_api": "stateful fixture", "live_private_data_write": "NOT_PERFORMED"},
+  "cutover": {"schema": "tsugu-workflow/1", "data_path": "data/workflow-projects", "legacy_read": false, "legacy_write": false, "legacy_data_deleted": false},
+  "limits": ["静的クライアントの権限境界はGitHub Repository", "外部証拠原本のreadbackと任意commitの実在検証は自動化しない", "公開後の実機とPrivate実データ保存はCI fixtureと区別して確認"]
+}

@@ -1,45 +1,41 @@
 # 継ぐ / TSUGU
 
-TSUGUは、目的・議論・決定・作業・検証を案件単位で継続管理する**単一のアプリケーション**です。GitHub Pagesは配信先であり、別の「Pages版」「静的版」「Sites版」はありません。
+目的・仕様・作業・確認結果・人の承認を、案件単位でつなぐ工程管理です。
 
-## 正本
+2026-09-12のハードカット指示に基づき、旧items、旧Core、v4〜v6画面とその実行依存を撤去しました。新モデルは `tsugu-workflow/1`。互換読込、自動migration、旧画面へのfallbackはありません。
 
-- アプリケーション: `kj2whvbzjn-hue/tsugu` / `main`
-- 公開URL: `https://kj2whvbzjn-hue.github.io/tsugu/`
-- 現行UI: `static/`
-- デプロイ: `.github/workflows/pages.yml`
-- E2E: `.github/workflows/e2e.yml`
-- 案件データ: Private `kj2whvbzjn-hue/tsugu-data` / `main`
-- 案件ファイル: `data/projects/<projectId>.json`
+## 現行構成
 
-旧サーバーランタイム、Cloudflare D1/R2、ChatGPT Sites、MCP、Next/vinext/Worker系は現行TSUGUの構成ではなく、mainから撤去する。実行可能なフォールバックや互換経路を残さない。
+- アプリケーション：`kj2whvbzjn-hue/tsugu` / `main`
+- 配信：`https://kj2whvbzjn-hue.github.io/tsugu/`（GitHub Pages）
+- 案件保存：Private `kj2whvbzjn-hue/tsugu-data` / `main`
+- 新案件パス：`data/workflow-projects/<workspace.id>.json`
+- `static/workflow-domain.mjs`：型、参照、依存、工程、承認、JSON統合
+- `static/workflow-git.mjs`：GitHub認証、SHA＋revision競合検知、保存
+- `static/workflow-app.mjs` / `workflow.css`：日本語UI
 
-## 保存と認証
+旧案件の `data/projects/` は新ランタイムから読み書きしません。この変更は旧データの削除を実行しません。
 
-TSUGUはGitHub APIへ直接接続します。案件の正本にlocalStorageを使いません。
+## 業務モデル
 
-- 1保存 = 1 Git commit
-- revision + Git blob SHA で競合検出
-- 履歴 = Git commit history
-- Fine-grained PATは利用中タブのメモリ内だけに保持
-- PATをlocalStorage / Cookie / 案件JSONに保存しない
-- 保存先はPrivate `tsugu-data`
-- 推奨権限は `Contents: Read and write`
+作業分類ツリー → WorkBox → Task。工程は検討 → 実装準備 → 実装 → 確認 → 完了。Lifecycle、Task状態、Task承認は独立しています。
 
-## 現在の機能
+議論・決定・正式仕様・仕様候補、System要素・契約・接続・変更影響、実装記録・SHA-256付き成果物参照、確認結果・再検査・履歴を管理します。Taskの完了にはそのTaskのCompletion Checkが必要です。実装TaskにはAppliedの実装記録と固定commit SHAも必要です。
 
-案件一覧・読込・新規作成・更新・削除、概要・工程・項目編集、承認、SOURCE_UPDATE検査、作業依存検査、TSUGU schemaVersion 1 JSON取込・バックアップ、AI引き継ぎ・返却JSON反映、高度な案件JSON編集を提供します。
+必須FAILはGeneralを含め開始／完了Gateを止めます。過去FAILは変更せず、同じ対象・GateのPassed/Waived Checkから解決します。
 
-旧Development Project JSONの変換取込は行いません。
+## 検証
 
-## 改修情報源
+```sh
+node --test tests/workflow.test.mjs
+bash .github/scripts/build-pages-site.sh _site
+npm install --no-save --package-lock=false playwright@1.55.0
+npx playwright install chromium
+python3 -m http.server 4173 --directory _site
+# 別ターミナル
+node tests/workflow-ui.e2e.cjs
+```
 
-現行の参照順は次です。
+UIテストは状態を保持するGitHub API fixtureを使用します。Privateの本番データへテストを書き込みません。認証・Git保存の実接続確認や、公開後の実機確認と区別してください。
 
-1. [`docs/TSUGU_PROJECT_REFERENCE.md`](docs/TSUGU_PROJECT_REFERENCE.md)
-2. [`docs/TSUGU_CORE_VNEXT_PLAN.md`](docs/TSUGU_CORE_VNEXT_PLAN.md)
-3. [`docs/TSUGU_CORE_VNEXT_WBS.md`](docs/TSUGU_CORE_VNEXT_WBS.md)
-4. [`DEPLOYMENT.md`](DEPLOYMENT.md)
-5. [`AI_CONNECTION.md`](AI_CONNECTION.md)
-
-過去資料にあるSites/D1/R2等の環境記述は現在値として使いません。作業開始時にmain HEADと実際のDeploymentを確認します。
+参照：`docs/WORKFLOW_HARD_CUT.md`、`docs/TSUGU_PROJECT_REFERENCE.md`、`AI_CONNECTION.md`、`DEPLOYMENT.md`。

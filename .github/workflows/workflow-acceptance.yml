@@ -1,0 +1,45 @@
+name: TSUGU Workflow Acceptance
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Domain, approval, import and Git concurrency tests
+        run: node --test tests/workflow.test.mjs
+      - name: Build the deployed artifact and reject old runtime dependencies
+        run: |
+          bash .github/scripts/build-pages-site.sh _site
+          python3 - <<'PY'
+          from pathlib import Path
+          expected={'index.html','favicon.svg','workflow.css','workflow-domain.mjs','workflow-git.mjs','workflow-app.mjs'}
+          assert {p.name for p in Path('_site').iterdir()} == expected
+          assert {p.name for p in Path('static').iterdir()} == expected
+          PY
+      - name: Install browser test dependency
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Exercise the complete workflow on mobile and desktop
+        run: |
+          python3 -m http.server 4173 --directory _site > /tmp/tsugu-workflow-server.log 2>&1 &
+          node tests/workflow-ui.e2e.cjs
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-acceptance-${{ github.sha }}
+          path: outputs/
+          if-no-files-found: warn

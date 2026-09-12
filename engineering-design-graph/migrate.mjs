@@ -6,15 +6,16 @@ import {dirname,join} from 'node:path';
 const defaultMigrationsDir=join(dirname(fileURLToPath(import.meta.url)),'db');
 const checksum=text=>createHash('sha256').update(text).digest('hex');
 
+export async function migrationPlan(migrationsDir=defaultMigrationsDir){const files=(await readdir(migrationsDir)).filter(x=>/^\d+.*\.sql$/.test(x)).sort();return Promise.all(files.map(async filename=>{const sql=await readFile(join(migrationsDir,filename),'utf8');return{filename,checksum:checksum(sql),sql}}))}
+
 export async function runMigrations({client,migrationsDir=defaultMigrationsDir,logger=console}={}){
   if(!client?.query)throw new Error('PostgreSQL client with query() is required');
   await client.query(`create table if not exists schema_migrations(filename text primary key,checksum text not null,applied_at timestamptz not null default now())`);
   await client.query(`select pg_advisory_lock(hashtext('engineering-design-graph-migrations'))`);
   const result={applied:[],skipped:[]};
   try{
-    const files=(await readdir(migrationsDir)).filter(x=>/^\d+.*\.sql$/.test(x)).sort();
-    for(const filename of files){
-      const sql=await readFile(join(migrationsDir,filename),'utf8'),sha=checksum(sql),existing=await client.query('select checksum from schema_migrations where filename=$1',[filename]);
+    for(const migration of await migrationPlan(migrationsDir)){
+      const {filename,checksum:sha,sql}=migration,existing=await client.query('select checksum from schema_migrations where filename=$1',[filename]);
       if(existing.rows[0]){if(existing.rows[0].checksum!==sha)throw new Error(`Migration checksum mismatch: ${filename}`);result.skipped.push(filename);continue}
       await client.query('begin');
       try{await client.query(sql);await client.query('insert into schema_migrations(filename,checksum) values($1,$2)',[filename,sha]);await client.query('commit');result.applied.push(filename);logger?.info?.(`Applied migration ${filename}`)}catch(error){await client.query('rollback');throw error}

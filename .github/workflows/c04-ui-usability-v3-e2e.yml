@@ -1,0 +1,142 @@
+name: TSUGU C-04 UI Usability v3 E2E
+# Frozen v3 thresholds; harness understands overflow actions as ARIA menuitems.
+# Candidate acceptance rerun after semantic decision-field classes; criteria and thresholds unchanged.
+
+on:
+  push:
+    branches:
+      - c04-v3-decision-ui-implementation-20260912
+    paths:
+      - 'static/app.js.gz.b64'
+      - 'static/styles.css'
+      - 'static/index.html'
+      - 'static/c04-ui-usability-plan-v3.json'
+      - 'tests/c04-ui-usability-v3.e2e.cjs'
+      - 'tests/c04-ui-usability-v2.e2e.cjs'
+      - 'tests/longtext-fullscreen.e2e.cjs'
+      - '.github/workflows/c04-ui-usability-v3-e2e.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'static/app.js.gz.b64'
+      - 'static/styles.css'
+      - 'static/index.html'
+      - 'static/c04-ui-usability-plan-v3.json'
+      - 'tests/c04-ui-usability-v3.e2e.cjs'
+      - 'tests/c04-ui-usability-v2.e2e.cjs'
+      - 'tests/longtext-fullscreen.e2e.cjs'
+      - '.github/workflows/c04-ui-usability-v3-e2e.yml'
+  workflow_run:
+    workflows: ['Deploy TSUGU']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tsugu-c04-v3-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  acceptance:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - name: Verify frozen v3 plan and candidate source
+        run: |
+          set -euo pipefail
+          node -e "const p=require('./static/c04-ui-usability-plan-v3.json');if(p.version!==3||p.status!=='FROZEN_BEFORE_BASELINE_MEASUREMENT')process.exit(1)"
+          node --check tests/c04-ui-usability-v3.e2e.cjs
+          node --check tests/c04-ui-usability-v2.e2e.cjs
+          node --check tests/longtext-fullscreen.e2e.cjs
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-v3-app.js
+          node --check /tmp/c04-v3-app.js
+          node --input-type=module --check < /tmp/c04-v3-app.js
+          grep -q 'workspaceMenuBtn' /tmp/c04-v3-app.js
+          grep -q 'relationResolutionHtml' /tmp/c04-v3-app.js
+          grep -q 'data-related-open' /tmp/c04-v3-app.js
+          grep -q 'relation-breadcrumb' /tmp/c04-v3-app.js
+          grep -q 'aria-autocomplete="list"' /tmp/c04-v3-app.js
+          grep -q 'C04 v3 decision UI' static/styles.css
+          grep -q 'app.js?v=c04-v3' static/index.html
+      - name: Build candidate Pages site
+        if: ${{ github.event_name != 'workflow_run' }}
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -a static/. _site/
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
+          rm -f _site/app.js.gz.b64
+          node --check _site/app.js
+          node --input-type=module --check < _site/app.js
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start candidate server
+        if: ${{ github.event_name != 'workflow_run' }}
+        run: |
+          python3 -m http.server 4173 --directory _site >/tmp/c04-v3-http.log 2>&1 &
+          echo $! > /tmp/c04-v3-server.pid
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/ >/dev/null && exit 0; sleep 1; done
+          exit 1
+      - name: Execute frozen v3 acceptance core
+        id: v3
+        continue-on-error: true
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          C04_TARGET_URL: ${{ github.event_name == 'workflow_run' && 'https://kj2whvbzjn-hue.github.io/tsugu/' || 'http://127.0.0.1:4173/' }}
+        run: node tests/c04-ui-usability-v3.e2e.cjs
+      - name: Execute frozen v2 regression
+        id: v2
+        continue-on-error: true
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          C04_TARGET_URL: ${{ github.event_name == 'workflow_run' && 'https://kj2whvbzjn-hue.github.io/tsugu/' || 'http://127.0.0.1:4173/' }}
+        run: node tests/c04-ui-usability-v2.e2e.cjs
+      - name: Execute long-text fullscreen regression
+        id: longtext
+        continue-on-error: true
+        env:
+          GH_TOKEN_E2E: ${{ github.token }}
+          C04_TARGET_URL: ${{ github.event_name == 'workflow_run' && 'https://kj2whvbzjn-hue.github.io/tsugu/' || 'http://127.0.0.1:4173/' }}
+        run: node tests/longtext-fullscreen.e2e.cjs
+      - name: Finalize C-04 v3 acceptance
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const read=p=>fs.existsSync(p)?JSON.parse(fs.readFileSync(p,'utf8')):null;
+          const v3=read('c04-ui-usability-v3-evidence.json');
+          const v2=read('c04-ui-usability-v2-evidence.json');
+          const lt=read('longtext-fullscreen-evidence.json');
+          const final={type:'TSUGUC04DecisionUIV3FinalEvidence',status:'FAIL',v3:v3?.status||'MISSING',v2:v2?.status||'MISSING',longtext:lt?.status||'MISSING',scenarios:v3?.scenarios||{},runtime:v3?.runtime||null,relation:v3?.metrics?.relation||null};
+          const v3ok=v3?.status==='PASS_UI3_01_TO_07';
+          const v2ok=v2?.status==='PASS';
+          const ltok=lt?.status==='PASS';
+          if(v3ok&&v2ok&&ltok){final.status='PASS';final.scenarios['UI3-08']={status:'PASS',metrics:{c04V2:'PASS',longtext:'PASS'}}}
+          fs.writeFileSync('c04-ui-usability-v3-final-evidence.json',JSON.stringify(final,null,2)+'\n');
+          console.log('C04_V3_FINAL',JSON.stringify(final));
+          if(final.status!=='PASS')process.exit(1);
+          NODE
+      - name: Upload C-04 v3 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c04-ui-usability-v3-evidence-${{ github.run_id }}
+          path: |
+            c04-ui-usability-v3-evidence.json
+            c04-ui-usability-v3-final-evidence.json
+            c04-ui-usability-v2-evidence.json
+            c04-v2-mobile.png
+            c04-v2-desktop.png
+            longtext-fullscreen-evidence.json
+            longtext-fullscreen-mobile.png
+          if-no-files-found: ignore

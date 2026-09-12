@@ -1,0 +1,81 @@
+{
+  "changeId": "C-04-LONGTEXT-01",
+  "title": "長文入力の全画面編集",
+  "status": "PASS",
+  "date": "2026-09-12",
+  "source": "User mobile UI feedback: long-text fields such as 本文 and 目的 are difficult to read in compact textareas and should open fullscreen when tapped.",
+  "problem": "Long-form text in the item/project editing UI had insufficient reading and editing area on mobile.",
+  "implementation": {
+    "selector": ".field textarea:not(.code)",
+    "behavior": [
+      "Tap or click a standard long-text textarea to open a fullscreen dialog.",
+      "Use 100vw x 100dvh with safe-area padding on mobile.",
+      "Show the source field label in the fullscreen header.",
+      "Synchronize edits back to the original textarea while editing and again when closing.",
+      "Return through the 編集画面へ戻る button, Escape, or backdrop without losing the current value.",
+      "Exclude JSON/code textareas from fullscreen behavior."
+    ],
+    "coverageNote": "The generic selector applies to standard .field textareas, including similarly rendered project long-text fields. Automated acceptance explicitly verifies 本文 and 理由・根拠.",
+    "files": [
+      "static/longtext-focus.js",
+      "static/longtext-focus.css",
+      "static/index.html",
+      ".github/workflows/pages.yml",
+      "tests/longtext-fullscreen.e2e.cjs",
+      ".github/workflows/c04-ui-usability-v2-e2e.yml",
+      ".github/workflows/c04-ui-usability-e2e.yml"
+    ]
+  },
+  "pullRequest": 26,
+  "resultSha": "cf8a78eee9c19c2a08aaa6f65eb768f0ab5208b5",
+  "deployment": {
+    "runId": 34661354154,
+    "result": "PASS",
+    "targetUrl": "https://kj2whvbzjn-hue.github.io/tsugu/"
+  },
+  "publishedVerification": {
+    "workflowRunId": 34661372401,
+    "workflowJobId": 103464399139,
+    "result": "PASS",
+    "artifact": {
+      "id": 10287716627,
+      "name": "c04-ui-usability-v2-evidence-34661372401",
+      "sha256": "87eb4fe2e69f8536ff9801f11dd9bb219c33ad02d5f7a57698a8e859376bf61a"
+    },
+    "mobile": {
+      "viewport": "390x844",
+      "fullscreenOverlay": "390x844",
+      "bodyEditorApprox": "374x771.0625",
+      "bodyRoundTrip": "PASS",
+      "reasonRoundTrip": "PASS",
+      "persistenceAfterApplyAndReopen": "PASS",
+      "runtimePageErrors": 0
+    }
+  },
+  "c04V2Regression": {
+    "criteria": "UNCHANGED",
+    "publishedRunId": 34661372401,
+    "result": "PASS",
+    "mobileKnownTargetObjectiveFlowPx": 0,
+    "desktopKnownTargetObjectiveFlowPx": 544,
+    "deleteReload": "2 -> 1 -> 0 and stable"
+  },
+  "postDeployRegressions": {
+    "stageB": {
+      "runId": 34661372417,
+      "result": "PASS_AFTER_RETRY",
+      "note": "The first attempt passed product/UI and ten-scenario checks but its immediate final GitHub Contents read observed the previous successful writer after a retry PUT. Re-running the same job without code changes passed the CAS race/retry verification."
+    },
+    "impactGraphC01": {"runId": 34661372431, "result": "PASS"},
+    "architectureHealthC02": {"runId": 34661372456, "result": "PASS"},
+    "syncRecoveryC03": {"runId": 34661372411, "result": "PASS"}
+  },
+  "historicalC04V1": {
+    "status": "FAIL_PRESERVED",
+    "runId": 34657670861,
+    "sourceSha": "3050f205e2408b0c02592cf6e1a1db44cc56d452",
+    "workflowMode": "MANUAL_HISTORICAL_REFERENCE_ONLY"
+  },
+  "nextTask": "C-03-LOAD-THRESHOLD-APPROVAL",
+  "blocker": "This UX change does not alter the existing C-03 human decision requirement. D-01 remains blocked until explicit maxSyncMs, maxRecalculationMs, and approvalRef are supplied."
+}

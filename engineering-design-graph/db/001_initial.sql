@@ -163,7 +163,7 @@ CREATE TABLE audit_logs (
 CREATE TABLE outbox_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   aggregate_type text NOT NULL,
-  aggregate_id uuid NOT NULL,
+  aggregate_id text NOT NULL,
   event_type text NOT NULL,
   payload jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),

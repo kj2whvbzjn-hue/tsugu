@@ -1,0 +1,39 @@
+name: C04 v3 decision field class fix
+
+on:
+  push:
+    branches:
+      - c04-v3-decision-ui-implementation-20260912
+    paths:
+      - '.github/workflows/c04-v3-decision-class-fix.yml'
+      - 'tools/c04_v3_decision_class_patch.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Add semantic classes to decision fields
+        run: python tools/c04_v3_decision_class_patch.py
+      - name: Verify candidate bundle
+        run: |
+          set -euo pipefail
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-v3-decision-class.js
+          node --input-type=module --check < /tmp/c04-v3-decision-class.js
+          test "$(grep -o 'class="field full decision-field"' /tmp/c04-v3-decision-class.js | wc -l)" -ge 3
+          grep -q 'data-field="purpose"' /tmp/c04-v3-decision-class.js
+          grep -q 'data-field="focus"' /tmp/c04-v3-decision-class.js
+          grep -q 'data-field="next"' /tmp/c04-v3-decision-class.js
+          git diff --check
+      - name: Commit fixed candidate
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/app.js.gz.b64
+          git commit -m "fix: mark C-04 decision fields semantically"
+          git push origin HEAD:c04-v3-decision-ui-implementation-20260912

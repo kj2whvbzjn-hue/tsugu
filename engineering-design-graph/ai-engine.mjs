@@ -109,7 +109,7 @@ export function rejectAICandidate(project,candidateId,{actorUserId='local-user',
 export function createLocalDemoProvider(){
   return {name:'local-demo',async generateStructured({role,context}){
     const target=context.target;
-    if(role==='requirement_reviewer'&&target?.type==='requirement')return {candidates:[{operation:'update',targetArtifactId:target.id,confidence:.92,knowledgeState:'proposed',proposedPayload:{...target.payload,reviewNote:'AI candidate: acceptance criteria and source traceability reviewed'},provenance:{sourceArtifactIds:target.sourceIds||[]}}],questions:[]};
+    if(role==='requirement_reviewer'&&target?.type==='requirement')return {candidates:[{operation:'update',targetArtifactId:target.id,confidence:.92,knowledgeState:'proposed',proposedPayload:{payload:{...target.payload,reviewNote:'AI candidate: acceptance criteria and source traceability reviewed'}},provenance:{sourceArtifactIds:target.sourceIds||[]}}],questions:[]};
     if(role==='task_planner')return {candidates:[{operation:'create',proposedType:'task',proposedKey:'TASK-AI-001',proposedTitle:'AI Proposed Implementation Task',confidence:.78,knowledgeState:'proposed',proposedPayload:{objective:'Review and implement the selected design slice',testConditions:['Validation passes'],definitionOfDone:['Human review completed']}}],questions:[]};
     return {candidates:[],questions:[{text:'No deterministic demo candidate for this role/context.'}]};
   }};

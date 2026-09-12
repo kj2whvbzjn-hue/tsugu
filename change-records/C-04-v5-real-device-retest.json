@@ -1,0 +1,20 @@
+{
+  "type": "TSUGURealDeviceRetestRecord",
+  "changeId": "C-04",
+  "candidate": "v5",
+  "recordedAt": "2026-09-12T20:13:00+09:00",
+  "result": "FAIL",
+  "authority": "human-real-device",
+  "observations": [
+    "不要な画面要素がモバイルの初期表示の半分以上を占有している",
+    "UI / Schema / Test などのBox用途を開発者側が標準種別として決めている",
+    "Dependency種別 uses / schema / ui / test / data / sequence を開発者側で固定している",
+    "Boxの用途と使い方はユーザーが決めるべきで、用途分類のハードコードは禁止"
+  ],
+  "requiredCorrection": {
+    "box": "Boxは汎用コンテナとして登録し、用途・分類はユーザー入力だけで定義する",
+    "dependency": "依存という構造的意味だけを正本にし、関係ラベルは任意のユーザー入力とする",
+    "mobile": "プロジェクト接続・案件操作・タブ等のクロームを圧縮し、最初の画面の主領域をBox/構造にする",
+    "compatibility": "既存v5のboxType/kindは読み取り互換として保持するが、新規v6作成では固定列挙値を生成しない"
+  }
+}

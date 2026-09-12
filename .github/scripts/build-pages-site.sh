@@ -9,8 +9,8 @@ runtime_assets=(
   index.html
   styles.css
   structure-v4.css
-  box-registry-v5.css
-  box-registry-v5.js
+  user-workspace-v6.css
+  user-workspace-v6.js
   longtext-focus.css
   longtext-focus.js
   favicon.svg

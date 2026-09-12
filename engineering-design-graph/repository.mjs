@@ -6,6 +6,7 @@ export class MemoryProjectRepository{
   async get(id){const p=this.projects.get(id);return p?clone(p):null}
   async list(){return [...this.projects.values()].map(clone)}
   async save(project){this.projects.set(project.id,clone(project));return clone(project)}
+  async saveWithinTransaction(project){return this.save(project)}
   async transaction(fn){const snapshot=structuredClone([...this.projects.entries()]);try{return await fn(this)}catch(e){this.projects=new Map(snapshot);throw e}}
 }
 
@@ -36,7 +37,8 @@ export class PostgresProjectRepository{
   }
   async list(){const r=await this.client.query('select id from projects order by created_at');const out=[];for(const row of r.rows)out.push(await this.get(String(row.id)));return out}
   async saveProjectHeader(project){const r=await this.client.query(`insert into projects(id,name,description,revision,settings,created_at,updated_at) values($1,$2,$3,$4,$5::jsonb,coalesce($6::timestamptz,now()),now()) on conflict(id) do update set name=excluded.name,description=excluded.description,revision=excluded.revision,settings=excluded.settings,updated_at=now() returning *`,[project.id,project.name,project.description||null,project.revision||1,JSON.stringify(project.settings||{}),project.createdAt||null]);return r.rows[0]}
-  async save(project){return this.transaction(async()=>{await this.saveProjectHeader(project);await this.replaceAggregate(project);return this.get(project.id)})}
+  async save(project){return this.transaction(()=>this.saveWithinTransaction(project))}
+  async saveWithinTransaction(project){await this.saveProjectHeader(project);await this.replaceAggregate(project);return project}
   async replaceAggregate(project){
     const id=project.id;
     await this.client.query('delete from readiness_snapshots where project_id=$1',[id]);

@@ -166,7 +166,67 @@ function formCandidate(form,base){
   return copy;
 }
 
+const findState={query:'',box:'',status:'',mode:'all'};
+function taskReady(task){
+  const deps=(task.depends_on||[]).map(taskById).filter(Boolean);
+  const depsDone=deps.every(t=>t.status==='Done');
+  const approved=!task.requires_human_approval||task.approval?.status==='Approved';
+  return task.status==='Todo'&&depsDone&&approved;
+}
+function taskBlocked(task){return task.status==='Blocked'||(task.status==='Todo'&&!taskReady(task));}
+function searchableText(row){return [rowName(row),row.id,row.body,row.summary,row.purpose,row.acceptance_criteria,row.result,row.evidence].filter(Boolean).join(' ').toLowerCase();}
+function resultRows(){
+  if(!project)return [];
+  const q=findState.query.trim().toLowerCase();
+  const rows=[];
+  for(const [collection,label] of [['architecture_nodes','作業分類'],['work_boxes','WorkBox'],['tasks','Task'],['specifications','正式仕様'],['checks','確認事項']]){
+    for(const row of project[collection]||[]){
+      if(q&&!searchableText(row).includes(q))continue;
+      if(collection==='tasks'){
+        if(findState.box&&row.box_id!==findState.box)continue;
+        if(findState.status&&row.status!==findState.status)continue;
+        if(findState.mode==='ready'&&!taskReady(row))continue;
+        if(findState.mode==='blocked'&&!taskBlocked(row))continue;
+      }else if(findState.box||findState.status||findState.mode!=='all')continue;
+      rows.push({collection,label,row});
+    }
+  }
+  return rows.slice(0,30);
+}
+function workspaceResultsHtml(){
+  const rows=resultRows();
+  if(!findState.query&&!findState.box&&!findState.status&&findState.mode==='all')return '<div class="tsugu-find-hint">検索またはフィルタを指定すると候補を表示します。</div>';
+  return rows.length?rows.map(({collection,label,row})=>`<button type="button" class="tsugu-find-result" data-tsugu-find="${collection}" data-id="${esc(row.id)}"><span><b>${esc(rowName(row))}</b><small>${esc(label)} · ${esc(row.id)}</small></span>${collection==='tasks'?`<span class="tsugu-relation-meta">${esc(row.status||'')}</span>`:''}</button>`).join(''):'<div class="tsugu-find-hint">一致する項目はありません。</div>';
+}
+function renderWorkspaceResults(){const box=document.querySelector('#tsugu-find-results');if(box)box.innerHTML=workspaceResultsHtml();}
+function workspaceTools(){
+  const workboxes=(project?.work_boxes||[]).map(b=>`<option value="${esc(b.id)}">${esc(rowName(b))}</option>`).join('');
+  const statuses=[...new Set((project?.tasks||[]).map(t=>t.status).filter(Boolean))].map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const node=document.createElement('section');node.id='tsugu-workspace-tools';node.className='tsugu-workspace-tools';node.setAttribute('aria-label','案件内検索と絞り込み');
+  node.innerHTML=`<div class="tsugu-find-row"><label class="tsugu-search-label"><span>案件内検索</span><input id="tsugu-quick-search" type="search" placeholder="Task・WorkBox・仕様・確認事項を名前またはIDで検索" autocomplete="off"></label><div class="tsugu-find-controls"><label>WorkBox<select id="tsugu-filter-box"><option value="">すべて</option>${workboxes}</select></label><label>状態<select id="tsugu-filter-status"><option value="">すべて</option>${statuses}</select></label><label>開始可否<select id="tsugu-filter-mode"><option value="all">すべて</option><option value="ready">開始可能</option><option value="blocked">ブロック</option></select></label><div class="tsugu-structure-actions"><button type="button" data-tsugu-collapse>構成を折りたたむ</button><button type="button" data-tsugu-expand>構成を展開</button></div></div></div><div id="tsugu-find-results" class="tsugu-find-results" aria-live="polite">${workspaceResultsHtml()}</div>`;
+  return node;
+}
+function ensureWorkspaceTools(){
+  if(!project||document.querySelector('#tsugu-workspace-tools'))return;
+  const tabs=document.querySelector('#app .tabs');if(!tabs)return;
+  tabs.insertAdjacentElement('afterend',workspaceTools());
+}
+function setStructure(open){for(const d of document.querySelectorAll('.tree details'))d.open=open;}
+function switchToStructureThenFocus(collection,id){
+  const tab=[...document.querySelectorAll('#app .tabs button')].find(b=>b.textContent.trim()==='構成');tab?.click();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const target=document.querySelector(`[data-action="edit"][data-collection="${CSS.escape(collection)}"][data-id="${CSS.escape(id)}"]`);
+    if(!target)return;
+    for(const d of document.querySelectorAll('.tree details'))if(d.contains(target))d.open=true;
+    target.scrollIntoView({block:'center'});target.focus();
+  }));
+}
+
 document.addEventListener('click',event=>{
+  const result=event.target.closest?.('[data-tsugu-find]');
+  if(result){event.preventDefault();const c=result.dataset.tsuguFind,id=result.dataset.id;if(supported.has(c))openDetail(c,id,{trigger:result});else switchToStructureThenFocus(c,id);return;}
+  if(event.target.closest?.('[data-tsugu-collapse]')){event.preventDefault();setStructure(false);return;}
+  if(event.target.closest?.('[data-tsugu-expand]')){event.preventDefault();setStructure(true);return;}
   const relation=event.target.closest?.('[data-tsugu-open]');
   if(relation){event.preventDefault();openDetail(relation.dataset.tsuguOpen,relation.dataset.id);return;}
   if(event.target.closest?.('[data-tsugu-close]')){event.preventDefault();closeDetail();return;}
@@ -179,6 +239,17 @@ document.addEventListener('click',event=>{
   }
 },true);
 
+document.addEventListener('input',event=>{
+  if(event.target?.id==='tsugu-quick-search'){findState.query=event.target.value;renderWorkspaceResults();}
+});
+document.addEventListener('change',event=>{
+  if(event.target?.id==='tsugu-filter-box')findState.box=event.target.value;
+  else if(event.target?.id==='tsugu-filter-status')findState.status=event.target.value;
+  else if(event.target?.id==='tsugu-filter-mode')findState.mode=event.target.value;
+  else return;
+  renderWorkspaceResults();
+});
+
 document.addEventListener('submit',event=>{
   if(!editingReturn||event.target?.id!=='record-editor'||!project)return;
   const base=record(editingReturn.collection,editingReturn.id);
@@ -190,7 +261,9 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Escape'){event.preventDefault();relationStack.length?backDetail():closeDetail();}
 });
 
+document.addEventListener('tsugu:project-captured',()=>queueMicrotask(ensureWorkspaceTools));
 const observer=new MutationObserver(()=>{
+  ensureWorkspaceTools();
   if(!editingReturn)return;
   const appDialog=document.querySelector('#app .dialog');
   if(appDialog){editDialogSeen=true;return;}

@@ -1,0 +1,126 @@
+{
+  "taskId": "C-04",
+  "planVersion": 4,
+  "status": "FROZEN_BEFORE_IMPLEMENTATION",
+  "frozenAt": "2026-09-12",
+  "baselineSourceSha": "fd6b4aa6a02aa0f2b5a185b6569e1c6d341f5ca6",
+  "sourceBasis": [
+    "initial architecture/work-management concept images supplied by the user",
+    "TSUGU_プロジェクト運用・参照基準書 2026-09-11",
+    "TSUGU Core vNext 修正版計画 v2.3"
+  ],
+  "nonNegotiableDecisions": [
+    "Architecture / WorkBox / Task and other typed entities are first-class in the main UI",
+    "legacy project.items is compatibility-only and must not receive new core features",
+    "parentId is not the canonical relationship mechanism for new structure UI",
+    "task.dependsOn is not the canonical dependency mechanism for new structure UI",
+    "relations may be stored directionally but the UI must derive incoming and outgoing navigation from the same canonical record",
+    "Box, Test and Dependency each have dedicated registration and management surfaces",
+    "the main structure view must represent hierarchy and branching rather than a fixed three-step funnel",
+    "display color/flag is derived presentation and is never the entity identity or relationship key"
+  ],
+  "acceptance": [
+    {
+      "id": "UI4-01",
+      "name": "初期構想の階層・分岐構造",
+      "pass": [
+        "ArchitectureNodeを2階層以上作成できる",
+        "同一親から2つ以上に分岐できる",
+        "各Nodeに0件以上のWorkBoxを配置できる",
+        "各WorkBoxに複数typed entityの要約行を表示できる",
+        "構造マップが固定のTask→Box→仕様3段階に限定されない"
+      ]
+    },
+    {
+      "id": "UI4-02",
+      "name": "親子の双方向探索",
+      "pass": [
+        "親ArchitectureNodeから子へ1操作で移動できる",
+        "子ArchitectureNodeから親へ1操作で戻れる",
+        "親WorkBoxから子WorkBoxへ移動できる",
+        "子WorkBoxから親WorkBoxへ戻れる"
+      ]
+    },
+    {
+      "id": "UI4-03",
+      "name": "WorkBox登録面",
+      "pass": [
+        "WorkBox専用登録UIが存在する",
+        "WorkBoxはArchitectureNodeへの所属を選択できる",
+        "WorkBox同士の親子を設定できる",
+        "登録後に構造マップへ即時反映される"
+      ]
+    },
+    {
+      "id": "UI4-04",
+      "name": "Task登録と所属の双方向探索",
+      "pass": [
+        "Task専用登録UIが存在する",
+        "TaskはWorkBoxまたはArchitectureNodeをsubjectとして設定できる",
+        "WorkBox/Node側から所属Taskを開ける",
+        "Task側から所属WorkBox/Nodeへ戻れる"
+      ]
+    },
+    {
+      "id": "UI4-05",
+      "name": "Test登録と逆引き",
+      "pass": [
+        "Test専用登録UIが存在する",
+        "Testは対象WorkBoxまたはTaskを明示できる",
+        "対象側からTestを開ける",
+        "Test側から対象へ戻れる",
+        "runner/command/evaluation conditionsを設定できる"
+      ]
+    },
+    {
+      "id": "UI4-06",
+      "name": "Event/TaskDependency登録と双方向探索",
+      "pass": [
+        "EventDefinition専用登録UIが存在しproducer Taskを明示できる",
+        "TaskDependency専用登録UIが存在しrequired Eventを明示できる",
+        "producer Task→Event→dependent Taskを辿れる",
+        "dependent Task→required Event→producer Taskを逆向きに辿れる",
+        "直接・間接のTask/Event循環を登録時に拒否する"
+      ]
+    },
+    {
+      "id": "UI4-07",
+      "name": "typed relation reverse index",
+      "pass": [
+        "Decision/Issue/Checkを含むtyped entity詳細にincoming/outgoing関係が表示される",
+        "1件の関係を二重保存せずreverse indexで両端から辿れる",
+        "関連種別が表示され、単一の汎用関連先フィールドに潰れない"
+      ]
+    },
+    {
+      "id": "UI4-08",
+      "name": "legacy隔離",
+      "pass": [
+        "legacy itemsは互換項目領域にのみ表示される",
+        "新規WorkBox/Task/Test/Dependency操作でproject.items件数が増えない",
+        "新規Dependency操作でlegacy task.dependsOnを書き換えない"
+      ]
+    },
+    {
+      "id": "UI4-09",
+      "name": "モバイル実機相当操作",
+      "pass": [
+        "390x844で横スクロールなし",
+        "主要操作ターゲット44px以上",
+        "構造→entity→関連先→戻る操作で未保存編集を失わない",
+        "構造マップはモバイルで縦方向の階層表示へ適応する"
+      ]
+    },
+    {
+      "id": "UI4-10",
+      "name": "既存コア安全性",
+      "pass": [
+        "Core vNext Architecture/Box/Rule-Test/Governance/Assurance contract suitesがPASSする",
+        "long-text fullscreen regressionがPASSする",
+        "unexpected console/page/API errorsが0件"
+      ]
+    }
+  ],
+  "mergeGate": "Candidate and published v4 must pass UI4-01..UI4-10, then user real-device acceptance is required before merge/final acceptance.",
+  "thresholdChangePolicy": "This v4 plan may not be weakened after implementation begins. Any required change must be recorded as a new plan version."
+}

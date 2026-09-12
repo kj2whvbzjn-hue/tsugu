@@ -1,0 +1,20 @@
+{
+  "taskId": "C-04",
+  "planVersion": 3,
+  "event": "REAL_DEVICE_RETEST",
+  "testedSourceSha": "fd6b4aa6a02aa0f2b5a185b6569e1c6d341f5ca6",
+  "testedTarget": "published GitHub Pages",
+  "result": "FAIL",
+  "reportedAt": "2026-09-12",
+  "failures": [
+    "導線が Task → Box → 仕様の一方向に見え、仕様 → Box → Task を含む双方向探索が成立していない",
+    "問題は仕様・Box・Taskだけに限定されず、typed entity 間の関係を両端から辿れる構造になっていない",
+    "Boxを登録・管理する専用場所がない",
+    "Testを設定・管理する専用場所がない",
+    "Dependencyを設定・管理する専用場所がない",
+    "初期構想図の階層・分岐した構造ノード／Boxと、その地点に複数項目・フラグが付随する構造が主画面に反映されていない",
+    "legacy items / parentId を中心にしたUI改善では構造要件を満たさない"
+  ],
+  "disposition": "SUPERSEDED_BY_C04_V4_STRUCTURE_REDESIGN",
+  "notes": "v3 automated PASS evidence is retained as historical evidence and is not rewritten. This real-device FAIL is the acceptance outcome for the published v3 UI."
+}

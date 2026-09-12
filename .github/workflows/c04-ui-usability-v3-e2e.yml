@@ -1,6 +1,6 @@
 name: TSUGU C-04 UI Usability v3 E2E
 # Frozen v3 thresholds; harness understands overflow actions as ARIA menuitems.
-# Candidate acceptance trigger: criteria and thresholds unchanged.
+# Candidate acceptance trigger after duplicate-helper repair; criteria and thresholds unchanged.
 
 on:
   push:
@@ -56,6 +56,7 @@ jobs:
           node --check tests/longtext-fullscreen.e2e.cjs
           base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-v3-app.js
           node --check /tmp/c04-v3-app.js
+          node --input-type=module --check < /tmp/c04-v3-app.js
           grep -q 'workspaceMenuBtn' /tmp/c04-v3-app.js
           grep -q 'relationResolutionHtml' /tmp/c04-v3-app.js
           grep -q 'data-related-open' /tmp/c04-v3-app.js
@@ -73,6 +74,7 @@ jobs:
           base64 --decode static/app.js.gz.b64 | gzip --decompress > _site/app.js
           rm -f _site/app.js.gz.b64
           node --check _site/app.js
+          node --input-type=module --check < _site/app.js
       - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null 2>&1

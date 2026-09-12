@@ -8,6 +8,7 @@ on:
     paths:
       - static/c04-ui-usability-plan-v3.json
       - tests/c04-ui-usability-v3-baseline.e2e.cjs
+      - tests/c04-ui-usability-v3-normalize.cjs
       - .github/workflows/c04-ui-usability-v3-baseline.yml
 
 permissions:
@@ -42,6 +43,8 @@ jobs:
           GH_TOKEN_E2E: ${{ github.token }}
           C04_TARGET_URL: https://kj2whvbzjn-hue.github.io/tsugu/
         run: node tests/c04-ui-usability-v2.e2e.cjs
+      - name: Normalize relation-cost and runtime evidence
+        run: node tests/c04-ui-usability-v3-normalize.cjs
       - name: Upload v3 baseline evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -49,6 +52,7 @@ jobs:
           name: c04-ui-v3-baseline-evidence-${{ github.run_id }}
           path: |
             c04-ui-usability-v3-baseline-evidence.json
+            c04-ui-usability-v3-baseline-evidence-normalized.json
             c04-ui-usability-v2-evidence.json
             c04-v3-baseline-workspace-mobile.png
           if-no-files-found: ignore

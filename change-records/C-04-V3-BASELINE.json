@@ -1,0 +1,117 @@
+{
+  "changeId": "C-04-V3-BASELINE",
+  "title": "判断中心UI・関連参照ナビゲーション baseline",
+  "status": "BASELINE_FAIL",
+  "date": "2026-09-12",
+  "plan": {
+    "path": "static/c04-ui-usability-plan-v3.json",
+    "version": 3,
+    "frozenCommit": "2d0ae47bea70735576a9410ba409f3a6c50865ed",
+    "rule": "結果を見て基準を緩めない"
+  },
+  "purposeBasis": [
+    "TSUGUは人間とAIが開発計画・タスク・判断・検査・承認を共有し、担当交代後も状態と理由を失わず継続できることを目的とする。",
+    "人間がTSUGUを見るだけで、目的、現在状態、変更、検査、PASS/FAIL、未解決、次作業、完了根拠を理解できる中心画面であるべき。",
+    "その時の判断に不要な管理操作を常設せず、関連根拠へ一覧検索を反復せず直接到達できることをUI評価軸とする。"
+  ],
+  "measurement": {
+    "workflowRunId": 34663532853,
+    "result": "SUCCESS_MEASUREMENT_COMPLETED",
+    "target": "https://kj2whvbzjn-hue.github.io/tsugu/",
+    "artifact": {
+      "id": 10288570072,
+      "name": "c04-ui-v3-baseline-evidence-34663532853",
+      "sha256": "e3e98521046a6c96c8582fc0445a0be1dee149cd182e0dc2a1cdd9111df0e0d5"
+    },
+    "planSavedThroughPlaywrightUI": true,
+    "workloadItems": 196
+  },
+  "results": {
+    "UI3-01": {
+      "status": "FAIL",
+      "persistentManagementButtons": 3,
+      "visible": ["JSONから新規取込", "GitHubから再読込", "接続解除"],
+      "overflowTrigger": 0,
+      "firstProjectTopViewportRatio": 0.577810278436019,
+      "note": "案件自体は初回viewport内に入るが、接続後も管理操作3個が常設されているためFAIL。"
+    },
+    "UI3-02": {
+      "status": "FAIL",
+      "mobileItemRowHeightPx": 155.09375,
+      "limitPx": 144,
+      "modalFieldMaxGapPx": 14,
+      "modalFieldGapLimitPx": 20,
+      "editTouchTarget": "44x44 PASS",
+      "note": "modal field gapはPASSだが通常項目rowが高さ上限を超過。"
+    },
+    "UI3-03": {
+      "status": "FAIL",
+      "currentFocusTravelPx": 1302,
+      "nextActionTravelPx": 1448,
+      "mobileViewportHeightPx": 844,
+      "limit": "1 viewport",
+      "note": "判断情報まで1viewportを超える。目的ラベルの測定selectorでは取得できなかったため、FAIL根拠はfocus/nextの実測超過で確定。"
+    },
+    "UI3-04": {
+      "status": "FAIL",
+      "relatedIdVisible": "REL-B",
+      "relatedTitleInlineCount": 0,
+      "note": "関連先は生ID入力として存在するが、関連先タイトル等の意味情報をinline解決していない。"
+    },
+    "UI3-05": {
+      "status": "FAIL",
+      "start": "REL-A edit modal already open",
+      "route": "close A -> list -> search REL-B -> open B",
+      "totalUserActions": 3,
+      "stateTransitions": 2,
+      "searches": 1,
+      "listIntermediates": 1,
+      "draftPreserved": false,
+      "target": "1 action / 0 search / 0 list intermediate"
+    },
+    "UI3-06": {
+      "status": "FAIL",
+      "start": "REL-A edit modal already open",
+      "forwardAtoBtoC": {
+        "totalUserActions": 6,
+        "stateTransitions": 4,
+        "searches": 2
+      },
+      "returnCtoA": {
+        "totalUserActions": 3,
+        "stateTransitions": 2,
+        "searches": 1
+      },
+      "fullAtoBtoCtoA": {
+        "totalUserActions": 9,
+        "stateTransitions": 6,
+        "searches": 3,
+        "listIntermediates": 3,
+        "draftPreserved": false
+      },
+      "target": "A→B→C max 2 actions / searches 0 / list 0; C→A max 1 action; draft preserved"
+    },
+    "UI3-07": {
+      "status": "FAIL",
+      "ariaAutocomplete": null,
+      "listAttribute": null,
+      "ariaInvalidAfterUnknown": null,
+      "inlineUnresolvedMessageCount": 0,
+      "note": "関連先入力は候補提示・存在検証・未解決表示を持たないplain ID input。"
+    },
+    "UI3-08": {
+      "status": "PASS",
+      "c04V2Regression": "PASS",
+      "mobileKnownTargetFlowPx": 0,
+      "desktopKnownTargetFlowPx": 544,
+      "runtime": {"consoleErrors":0,"pageErrors":0,"apiErrors":0},
+      "deleteReload": "2 -> 1 -> 0 stable"
+    }
+  },
+  "summary": {
+    "pass": 1,
+    "fail": 7,
+    "failed": ["UI3-01", "UI3-02", "UI3-03", "UI3-04", "UI3-05", "UI3-06", "UI3-07"]
+  },
+  "next": "このbaseline FAILを実装要件として、常設管理UI収納・密度改善・判断情報優先・関連inline解決・direct relation navigation・relation stack/breadcrumb・入力候補/存在検証を実装し、同じ固定基準で再測定する。"
+}

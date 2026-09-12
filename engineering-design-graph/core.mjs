@@ -1,133 +1,28 @@
-export const ARTIFACT_TYPES = ['requirement','specification','domain','system','module','interface','task','decision','question','source'];
-export const RELATION_TYPES = ['refines','uses','owns','decomposed_to','exposes','implements','depends_on','references','conflicts_with','supersedes','derived_from','affected_by'];
-
-export const relationRegistry = {
-  refines: { from:['requirement'], to:['specification'], impactWeight:1 },
-  uses: { from:['specification','module','system'], to:['domain','interface'], impactWeight:.7 },
-  owns: { from:['system'], to:['domain'], impactWeight:.8 },
-  decomposed_to: { from:['system'], to:['module'], impactWeight:.9 },
-  exposes: { from:['module'], to:['interface'], impactWeight:.9 },
-  implements: { from:['task'], to:['module','interface'], impactWeight:1 },
-  depends_on: { from:['system','module','task'], to:['system','module','task'], impactWeight:.9, acyclic:true },
-  references: { from:ARTIFACT_TYPES, to:ARTIFACT_TYPES, impactWeight:.3 },
-  conflicts_with: { from:ARTIFACT_TYPES, to:ARTIFACT_TYPES, impactWeight:1 },
-  supersedes: { from:ARTIFACT_TYPES, to:ARTIFACT_TYPES, impactWeight:.8, acyclic:true },
-  derived_from: { from:ARTIFACT_TYPES, to:ARTIFACT_TYPES, impactWeight:.6 },
-  affected_by: { from:ARTIFACT_TYPES, to:ARTIFACT_TYPES, impactWeight:.8 }
-};
-
-export function byId(project){ return new Map(project.artifacts.map(a=>[a.id,a])); }
-export function artifactByKey(project,key){ return project.artifacts.find(a=>a.key===key); }
-
-export function validateRelation(project, relation){
-  const map=byId(project), from=map.get(relation.fromArtifactId), to=map.get(relation.toArtifactId), def=relationRegistry[relation.type];
-  if(!from || !to) return {ok:false,error:'Relation endpoint does not exist'};
-  if(!def) return {ok:false,error:'Unknown relation type'};
-  if(!def.from.includes(from.type) || !def.to.includes(to.type)) return {ok:false,error:`${relation.type} does not allow ${from.type} -> ${to.type}`};
-  if(from.id===to.id) return {ok:false,error:'Self relation is not allowed'};
-  return {ok:true};
-}
-
-export function detectCycles(project, type='depends_on'){
-  const edges=project.relations.filter(r=>r.type===type && r.status!=='deprecated');
-  const adj=new Map(); for(const e of edges){ if(!adj.has(e.fromArtifactId)) adj.set(e.fromArtifactId,[]); adj.get(e.fromArtifactId).push(e.toArtifactId); }
-  const visiting=new Set(), visited=new Set(), stack=[], cycles=[];
-  function dfs(id){
-    if(visiting.has(id)){ const i=stack.indexOf(id); cycles.push([...stack.slice(i),id]); return; }
-    if(visited.has(id)) return;
-    visiting.add(id); stack.push(id); for(const n of adj.get(id)||[]) dfs(n); stack.pop(); visiting.delete(id); visited.add(id);
-  }
-  for(const id of adj.keys()) dfs(id); return cycles;
-}
-
-export function trace(project, rootId, direction='downstream', maxDepth=8){
-  const rels=project.relations.filter(r=>r.status!=='deprecated'), result=[], seen=new Set([rootId]), q=[{id:rootId,depth:0}];
-  while(q.length){ const cur=q.shift(); if(cur.depth>=maxDepth) continue; for(const r of rels){
-    const next=direction==='downstream' ? (r.fromArtifactId===cur.id?r.toArtifactId:null) : (r.toArtifactId===cur.id?r.fromArtifactId:null);
-    if(next && !seen.has(next)){ seen.add(next); result.push({artifactId:next,relation:r,depth:cur.depth+1}); q.push({id:next,depth:cur.depth+1}); }
-  }} return result;
-}
-
-export function requirementCoverage(project, req){
-  // Coverage follows semantic traceability, including inverse UI labels such as
-  // Module <-implements- Task. Canonical relation storage direction is preserved.
-  const rels=project.relations.filter(r=>r.status!=='deprecated');
-  const reach=new Set([req.id]), q=[req.id];
-  while(q.length){
-    const id=q.shift();
-    for(const r of rels){
-      const next=r.fromArtifactId===id?r.toArtifactId:(r.toArtifactId===id?r.fromArtifactId:null);
-      if(next && !reach.has(next)){ reach.add(next); q.push(next); }
-    }
-  }
-  reach.delete(req.id);
-  const arts=project.artifacts.filter(a=>reach.has(a.id));
-  const hasSpec=arts.some(a=>a.type==='specification');
-  const hasArch=arts.some(a=>a.type==='system'||a.type==='module');
-  const hasTask=arts.some(a=>a.type==='task');
-  const externallyObservable=arts.some(a=>a.type==='interface');
-  const checks=[hasSpec,hasArch,hasTask];
-  if(externallyObservable) checks.push(true);
-  return {score:Math.round(checks.filter(Boolean).length/checks.length*100),hasSpec,hasArch,hasTask,hasInterface:externallyObservable};
-}
-
-export function runValidation(project){
-  const issues=[]; const rels=project.relations.filter(r=>r.status!=='deprecated');
-  const add=(ruleId,severity,artifactIds,title,message)=>issues.push({id:`${ruleId}:${artifactIds.join(',')}`,ruleId,severity,artifactIds,title,message,status:'open'});
-  for(const a of project.artifacts){
-    if(a.type==='requirement'){
-      if(a.payload?.priority==='must' && !(a.payload?.acceptanceCriteria?.length)) add('VAL-REQ-001','error',[a.id],'Must requirement has no acceptance criteria','Add at least one acceptance criterion.');
-      if(!(a.sourceIds?.length)) add('VAL-REQ-002','warning',[a.id],'Requirement has no source','Attach at least one source.');
-    }
-    if(a.type==='specification' && !rels.some(r=>r.type==='refines'&&r.toArtifactId===a.id)) add('VAL-SPEC-001','error',[a.id],'Orphan specification','Map the specification from a requirement.');
-    if(a.type==='module'){
-      if(!a.payload?.responsibility?.trim()) add('VAL-MOD-001','error',[a.id],'Module responsibility is empty','Define a focused responsibility.');
-      if(!(a.payload?.mustNot?.length)) add('VAL-MOD-002','warning',[a.id],'Module has no must-not boundary','Add non-responsibilities to prevent scope growth.');
-    }
-    if(a.type==='interface'){
-      if(!a.payload?.inputSchema || !a.payload?.outputSchema) add('VAL-IF-001','error',[a.id],'Interface schema missing','Define both input and output schemas.');
-      if(a.payload?.direction==='inbound' && !(a.payload?.errorSchemas?.length)) add('VAL-IF-002','error',[a.id],'Inbound interface has no error contract','Define expected error contracts.');
-    }
-    if(a.type==='task'){
-      if(!rels.some(r=>r.type==='implements'&&r.fromArtifactId===a.id)) add('VAL-TASK-001','error',[a.id],'Task implements nothing','Link the task to a module or interface.');
-      if(!(a.payload?.testConditions?.length)) add('VAL-TASK-002','error',[a.id],'Task has no test conditions','Add executable test conditions.');
-    }
-    if(a.type==='question' && a.payload?.blocking && !a.payload?.answer) add('VAL-Q-001','critical',[a.id],'Blocking question unresolved',a.payload.question||'Resolve this question before implementation.');
-  }
-  for(const cycle of detectCycles(project,'depends_on')) add('VAL-DEP-001','critical',cycle.slice(0,-1),'Dependency cycle detected','Break the dependency cycle or document an approved exception.');
-  for(const r of rels){ const vr=validateRelation(project,r); if(!vr.ok) add('VAL-REL-001','error',[r.fromArtifactId,r.toArtifactId],'Invalid relation',vr.error); }
-  return issues;
-}
-
-export function readiness(project){
-  const issues=runValidation(project); const blocking=[]; const reqs=project.artifacts.filter(a=>a.type==='requirement'&&a.payload?.priority==='must');
-  if(reqs.some(r=>requirementCoverage(project,r).score<100)) blocking.push('Must Requirement coverage must be 100%');
-  if(project.artifacts.some(a=>['specification','domain','system','module','interface'].includes(a.type)&&a.status!=='approved')) blocking.push('Implementation artifacts must be approved');
-  if(project.artifacts.some(a=>a.type==='question'&&a.payload?.blocking&&!a.payload?.answer)) blocking.push('Blocking questions must be resolved');
-  if(issues.some(i=>i.severity==='critical')) blocking.push('Critical validation issues must be zero');
-  if(project.artifacts.filter(a=>a.type==='task').some(a=>!(a.payload?.testConditions?.length))) blocking.push('Tasks must have test conditions');
-  const warningCount=issues.filter(i=>i.severity==='warning').length;
-  const unique=[...new Set(blocking)]; const total=5; const score=Math.round((total-Math.min(total,unique.length))/total*100);
-  return {status:unique.length?'NOT_READY':warningCount?'READY_WITH_WARNINGS':'READY',score,blocking:unique,issues};
-}
-
-export function impact(project, artifactId){
-  return trace(project,artifactId,'downstream').map(x=>({artifact:byId(project).get(x.artifactId),relationType:x.relation.type,depth:x.depth,weight:relationRegistry[x.relation.type]?.impactWeight??.5}));
-}
-
-export function makeSampleProject(){
-  const now=new Date().toISOString(); const A=(id,key,type,title,status,payload={},extra={})=>({id,projectId:'p1',key,type,title,status,knowledgeState:'known',version:1,currentVersionId:`${id}-v1`,tags:[],sourceIds:extra.sourceIds||[],metadata:{},createdAt:now,updatedAt:now,payload});
-  const artifacts=[
-    A('req1','REQ-ORDER-001','requirement','注文を作成できる','approved',{priority:'must',statement:'認証済みユーザーはカート内の商品から注文を作成できる',acceptanceCriteria:['空のカートでは注文できない','在庫不足の商品が存在する場合は失敗する','成功時に注文IDが生成される','注文作成後にカートが確定状態になる']},{sourceIds:['src1']}),
-    A('spec1','SPEC-ORDER-CREATE-001','specification','注文作成仕様','approved',{preconditions:['user authenticated','cart belongs to user'],processingRules:['validate cart non-empty','validate inventory','calculate price','create order'],failureCases:['CART_EMPTY','INVENTORY_SHORTAGE','INVALID_PAYMENT_METHOD'],outputs:['orderId','status','totalAmount']}),
-    A('dom1','DOMAIN-ORDER','domain','Order Domain','approved',{kind:'aggregate',definition:'Order lifecycle and invariants',invariants:['totalAmount >= 0','at least one OrderItem']}),
-    A('sys1','SYS-ORDER','system','Order System','approved',{responsibility:'Order lifecycle and consistency'}),
-    A('mod1','MOD-ORDER-VALIDATOR','module','Order Validator','approved',{responsibility:'validate business conditions before order creation',mustNot:['calculate prices','write DB','execute payment']}),
-    A('if1','IF-ORDER-CREATE-001','interface','POST /orders','approved',{kind:'http',direction:'inbound',operation:'POST',endpoint:'/orders',inputSchema:{cartId:'string',paymentMethodId:'string'},outputSchema:{orderId:'string',status:'string',totalAmount:'integer'},errorSchemas:['CART_EMPTY','INVENTORY_SHORTAGE','INVALID_PAYMENT_METHOD'],idempotency:{strategy:'Idempotency-Key'}}),
-    A('task1','TASK-ORDER-014','task','Implement OrderValidator','draft',{objective:'Implement OrderValidator',testConditions:['Empty cart','Inventory shortage','Invalid quantity','Valid order'],definitionOfDone:['Unit tests pass','No unresolved design question','Interface contract satisfied']}),
-    A('src1','SRC-ORDER-001','source','Order workshop notes','approved',{kind:'user_input',excerpt:'Authenticated users create orders from carts.'})
-  ];
-  const R=(id,from,to,type)=>({id,projectId:'p1',fromArtifactId:from,toArtifactId:to,type,status:'active',source:'human',createdAt:now,updatedAt:now});
-  const relations=[R('r1','req1','spec1','refines'),R('r2','spec1','dom1','uses'),R('r3','sys1','dom1','owns'),R('r4','sys1','mod1','decomposed_to'),R('r5','mod1','if1','exposes'),R('r6','task1','mod1','implements'),R('r7','spec1','sys1','references')];
-  return {id:'p1',name:'EC Order Creation',artifacts,relations,changes:[]};
-}
+export const ARTIFACT_TYPES=['requirement','specification','domain','system','module','interface','task','decision','question','source'];
+export const STATUSES=['draft','review','approved','locked','changed','outdated','deprecated'];
+export const RELATION_TYPES=['refines','uses','owns','decomposed_to','exposes','implements','depends_on','references','conflicts_with','supersedes','derived_from','affected_by'];
+export const relationRegistry={refines:{from:['requirement'],to:['specification'],impactWeight:1},uses:{from:['specification','module','system'],to:['domain','interface'],impactWeight:.7},owns:{from:['system'],to:['domain'],impactWeight:.8},decomposed_to:{from:['system'],to:['module'],impactWeight:.9},exposes:{from:['module'],to:['interface'],impactWeight:.9},implements:{from:['task'],to:['module','interface'],impactWeight:1},depends_on:{from:['system','module','task'],to:['system','module','task'],impactWeight:.9,acyclic:true},references:{from:ARTIFACT_TYPES,to:ARTIFACT_TYPES,impactWeight:.4},conflicts_with:{from:ARTIFACT_TYPES,to:ARTIFACT_TYPES,impactWeight:1},supersedes:{from:ARTIFACT_TYPES,to:ARTIFACT_TYPES,impactWeight:.8,acyclic:true},derived_from:{from:ARTIFACT_TYPES,to:ARTIFACT_TYPES,impactWeight:.6},affected_by:{from:ARTIFACT_TYPES,to:ARTIFACT_TYPES,impactWeight:.8}};
+const now=()=>new Date().toISOString(); const uid=()=>globalThis.crypto?.randomUUID?.()||`id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+export const byId=p=>new Map(p.artifacts.map(a=>[a.id,a])); export const artifactByKey=(p,k)=>p.artifacts.find(a=>a.key===k);
+export function validateRelation(project,r){const m=byId(project),f=m.get(r.fromArtifactId),t=m.get(r.toArtifactId),d=relationRegistry[r.type];if(!f||!t)return{ok:false,error:'Relation endpoint does not exist'};if(!d)return{ok:false,error:'Unknown relation type'};if(f.id===t.id)return{ok:false,error:'Self relation is not allowed'};if(!d.from.includes(f.type)||!d.to.includes(t.type))return{ok:false,error:`${r.type} does not allow ${f.type} -> ${t.type}`};return{ok:true}}
+export function detectCycles(project,type='depends_on'){const es=project.relations.filter(r=>r.type===type&&r.status!=='deprecated'),adj=new Map(),cycles=[];for(const e of es){if(!adj.has(e.fromArtifactId))adj.set(e.fromArtifactId,[]);adj.get(e.fromArtifactId).push(e.toArtifactId)}const visiting=new Set(),done=new Set(),stack=[];function dfs(id){if(visiting.has(id)){const i=stack.indexOf(id);cycles.push([...stack.slice(i),id]);return}if(done.has(id))return;visiting.add(id);stack.push(id);for(const n of adj.get(id)||[])dfs(n);stack.pop();visiting.delete(id);done.add(id)}for(const id of adj.keys())dfs(id);return cycles}
+export function trace(project,rootId,direction='downstream',maxDepth=8){const rels=project.relations.filter(r=>r.status!=='deprecated'),out=[],seen=new Set([rootId]),q=[{id:rootId,depth:0}];while(q.length){const c=q.shift();if(c.depth>=maxDepth)continue;for(const r of rels){const n=direction==='downstream'?(r.fromArtifactId===c.id?r.toArtifactId:null):(r.toArtifactId===c.id?r.fromArtifactId:null);if(n&&!seen.has(n)){seen.add(n);out.push({artifactId:n,relation:r,depth:c.depth+1});q.push({id:n,depth:c.depth+1})}}}return out}
+function semanticReach(project,rootId){const rels=project.relations.filter(r=>r.status!=='deprecated'),reach=new Set([rootId]),q=[rootId];while(q.length){const id=q.shift();for(const r of rels){const n=r.fromArtifactId===id?r.toArtifactId:r.toArtifactId===id?r.fromArtifactId:null;if(n&&!reach.has(n)){reach.add(n);q.push(n)}}}return reach}
+export function requirementCoverage(project,req){const reach=semanticReach(project,req.id);reach.delete(req.id);const a=project.artifacts.filter(x=>reach.has(x.id));const hasSpec=a.some(x=>x.type==='specification'),hasArch=a.some(x=>['system','module'].includes(x.type)),hasInterface=a.some(x=>x.type==='interface'),hasTask=a.some(x=>x.type==='task');const checks=[hasSpec,hasArch,hasTask,hasInterface];return{score:Math.round(checks.filter(Boolean).length/checks.length*100),hasSpec,hasArch,hasTask,hasInterface}}
+function fp(rule,ids,msg){return `${rule}|${[...ids].sort().join(',')}|${msg}`}
+export function runValidation(project){const issues=[],rels=project.relations.filter(r=>r.status!=='deprecated'),m=byId(project);const add=(ruleId,severity,ids,title,message,category='completeness')=>issues.push({id:fp(ruleId,ids,message),fingerprint:fp(ruleId,ids,message),ruleId,severity,artifactIds:ids,title,message,category,status:'open'});for(const a of project.artifacts){const p=a.payload||{};if(a.type==='requirement'){if(p.priority==='must'&&!p.acceptanceCriteria?.length)add('VAL-REQ-001','error',[a.id],'Must requirement has no acceptance criteria','Add at least one acceptance criterion.');if(!a.sourceIds?.length)add('VAL-REQ-002','error',[a.id],'Requirement has no source','Attach at least one source.','traceability');if(['approved','locked'].includes(a.status)&&!String(a.description||p.statement||'').trim())add('VAL-REQ-003','error',[a.id],'Approved requirement description is empty','Add a requirement statement.')}if(a.type==='specification'){if(!rels.some(r=>r.type==='refines'&&r.toArtifactId===a.id))add('VAL-SPEC-001','error',[a.id],'Orphan specification','Map specification from a requirement.','traceability');if((p.inputs?.length||p.outputs?.length)&&!p.failureCases?.length)add('VAL-SPEC-002','warning',[a.id],'Specification has I/O but no failure cases','Define failure cases.','contract');for(const id of p.domainIds||[]){if(!m.has(id))add('VAL-SPEC-003','error',[a.id],'Referenced domain does not exist',`Missing domain ${id}.`,'definition')}}if(a.type==='domain'){if(p.kind==='entity'&&!p.identityStrategy)add('VAL-DOM-001','error',[a.id],'Entity identity strategy missing','Define identityStrategy.','definition');if(p.kind==='aggregate'&&!p.invariants?.length)add('VAL-DOM-002','error',[a.id],'Aggregate invariant missing','Define at least one invariant.','definition')}if(a.type==='system'){if(!String(p.responsibility||'').trim())add('VAL-SYS-001','error',[a.id],'System responsibility is empty','Define system responsibility.','architecture');if((p.externalDependencies||[]).some(d=>!d.failurePolicy))add('VAL-SYS-003','error',[a.id],'External dependency failure policy missing','Define failurePolicy for every external dependency.','architecture')}if(a.type==='module'){if(!String(p.responsibility||'').trim())add('VAL-MOD-001','error',[a.id],'Module responsibility is empty','Define a focused responsibility.','architecture');if(!p.mustNot?.length)add('VAL-MOD-002','warning',[a.id],'Module has no must-not boundary','Add non-responsibilities.','architecture')}if(a.type==='interface'){if(!p.inputSchema||!p.outputSchema)add('VAL-IF-001','error',[a.id],'Interface schema missing','Define input and output schemas.','contract');if(['external','inbound','outbound'].includes(p.direction)&&!p.errorSchemas?.length)add('VAL-IF-002','error',[a.id],'Interface error contract missing','Define errorSchemas.','contract');if(['POST','PUT','PATCH','DELETE','command'].includes(String(p.operation||p.kind||'').toUpperCase())&&!p.idempotency)add('VAL-IF-003','warning',[a.id],'Mutating interface has no idempotency policy','Define idempotency strategy.','contract');if(p.direction==='inbound'&&!p.auth)add('VAL-IF-004','warning',[a.id],'Inbound interface auth policy missing','Define auth contract.','contract')}if(a.type==='task'){if(!rels.some(r=>r.type==='implements'&&r.fromArtifactId===a.id))add('VAL-TASK-001','error',[a.id],'Task implements nothing','Link task to module/interface.','traceability');if(!p.testConditions?.length)add('VAL-TASK-002','error',[a.id],'Task has no test conditions','Add executable test conditions.','readiness');const blocked=(p.referenceArtifactIds||[]).map(id=>m.get(id)).filter(x=>x?.type==='question'&&x.payload?.blocking&&!x.payload?.answer);if(blocked.length)add('VAL-TASK-003','critical',[a.id,...blocked.map(x=>x.id)],'Task references unresolved blocking question','Resolve the blocking question.','readiness')}if(a.type==='question'&&p.blocking&&!p.answer)add('VAL-Q-001','critical',[a.id],'Blocking question unresolved',p.question||'Resolve this question.','readiness')}
+const names=new Map();for(const a of project.artifacts.filter(x=>x.type==='domain')){const n=a.title.trim().toLowerCase();if(names.has(n))add('VAL-DOM-003','warning',[names.get(n),a.id],'Duplicate domain concept candidate','Review duplicated domain concept names.','definition');else names.set(n,a.id)}for(const c of detectCycles(project,'depends_on')){add('VAL-DEP-001','critical',c.slice(0,-1),'Dependency cycle detected','Break dependency cycle.','dependency')}for(const r of rels){const vr=validateRelation(project,r);if(!vr.ok)add('VAL-REL-001','error',[r.fromArtifactId,r.toArtifactId],'Invalid relation',vr.error,'traceability')}for(const s of project.artifacts.filter(a=>a.type==='system')){const owned=rels.some(r=>r.type==='owns'&&r.fromArtifactId===s.id);if(!owned)add('VAL-SYS-004','warning',[s.id],'System owns no domain','Assign domain ownership.','architecture')}return issues}
+export const VALIDATION_RULE_COUNT=23;
+export function validationSummary(project){const issues=runValidation(project),count=s=>issues.filter(i=>i.severity===s).length;return{score:Math.max(0,100-count('critical')*20-count('error')*7-count('warning')*2),critical:count('critical'),errors:count('error'),warnings:count('warning'),total:issues.length,issues}}
+export function readiness(project){const issues=runValidation(project),blocking=[];const must=project.artifacts.filter(a=>a.type==='requirement'&&a.payload?.priority==='must');if(must.some(a=>requirementCoverage(project,a).score<100))blocking.push('Must Requirement coverage must be 100%');if(project.artifacts.some(a=>['specification','domain','system','module','interface'].includes(a.type)&&!['approved','locked'].includes(a.status)))blocking.push('Implementation artifacts must be approved or locked');if(project.artifacts.some(a=>a.type==='question'&&a.payload?.blocking&&!a.payload?.answer))blocking.push('Blocking questions must be resolved');if(issues.some(i=>i.severity==='critical'))blocking.push('Critical validation issues must be zero');if(project.artifacts.filter(a=>a.type==='task').some(a=>!a.payload?.testConditions?.length))blocking.push('Tasks must have test conditions');if(project.artifacts.filter(a=>a.type==='interface').some(a=>!a.payload?.inputSchema||!a.payload?.outputSchema))blocking.push('Interface contracts must be defined');const unique=[...new Set(blocking)],warnings=issues.filter(i=>i.severity==='warning').length,total=6,score=Math.round((total-Math.min(total,unique.length))/total*100);return{status:unique.length?'NOT_READY':warnings?'READY_WITH_WARNINGS':'READY',score,blocking:unique,issues}}
+export function impact(project,artifactId,maxDepth=8){const m=byId(project);return trace(project,artifactId,'downstream',maxDepth).map(x=>{const w=relationRegistry[x.relation.type]?.impactWeight??.5,score=Number((w*Math.pow(.85,x.depth-1)).toFixed(3));return{artifact:m.get(x.artifactId),relationType:x.relation.type,depth:x.depth,weight:w,score,classification:score>=.75?'direct':score>=.35?'potential':'none'}})}
+export function ensureVersionStore(project){project.artifactVersions=project.artifactVersions||[];for(const a of project.artifacts){if(!project.artifactVersions.some(v=>v.id===a.currentVersionId))project.artifactVersions.push({id:a.currentVersionId,artifactId:a.id,version:a.version||1,schemaVersion:1,title:a.title,description:a.description||'',payload:structuredClone(a.payload||{}),knowledgeAnnotations:[],createdBy:'seed',createdAt:a.createdAt||now()})}project.revision=project.revision||1;project.changeSets=project.changeSets||[];project.readinessSnapshots=project.readinessSnapshots||[];return project}
+export function createChangeSet(project,title='Working changes',actorUserId='local-user'){ensureVersionStore(project);const cs={id:uid(),projectId:project.id,title,status:'open',baseRevision:project.revision,actorUserId,createdAt:now(),items:[]};project.changeSets.push(cs);return cs}
+export function addChangeItem(cs,item){if(cs.status!=='open')throw new Error('ChangeSet is not open');cs.items.push({id:uid(),...structuredClone(item)});return cs}
+function cloneProject(p){return structuredClone(p)}
+export function previewChangeSet(project,changeSetId){ensureVersionStore(project);const cs=project.changeSets.find(x=>x.id===changeSetId);if(!cs)throw new Error('ChangeSet not found');const staged=cloneProject(project),scs=staged.changeSets.find(x=>x.id===changeSetId);applyItems(staged,scs,{commit:false});const changedIds=scs.items.map(i=>i.artifactId||i.artifact?.id).filter(Boolean);const impacted=[...new Map(changedIds.flatMap(id=>impact(staged,id).map(x=>[x.artifact?.id,x])).filter(x=>x[0])).values()];return{changeSetId,validation:validationSummary(staged),readiness:readiness(staged),impacted,staged}}
+function applyItems(project,cs,{commit=true}={}){const m=byId(project),stamp=now();for(const item of cs.items){if(item.kind==='update_artifact'){const a=m.get(item.artifactId);if(!a)throw new Error(`Artifact ${item.artifactId} not found`);if(item.expectedRevision!=null&&a.revision!=null&&a.revision!==item.expectedRevision)throw new Error(`Revision conflict for ${a.key}`);Object.assign(a,structuredClone(item.patch));a.version=(a.version||1)+1;a.revision=(a.revision||1)+1;a.updatedAt=stamp;if(['approved','locked'].includes(item.previousStatus||a.status))a.status='changed';const v={id:uid(),artifactId:a.id,version:a.version,schemaVersion:1,title:a.title,description:a.description||'',payload:structuredClone(a.payload||{}),knowledgeAnnotations:[],changeSetId:cs.id,createdBy:cs.actorUserId,createdAt:stamp};if(commit){project.artifactVersions.push(v);a.currentVersionId=v.id}for(const x of impact(project,a.id).filter(x=>['direct','potential'].includes(x.classification))){if(!x.artifact)continue;if(x.classification==='direct'&&['approved','locked'].includes(x.artifact.status))x.artifact.status='outdated';if(x.classification==='potential')x.artifact.reviewRequired=true}}else if(item.kind==='create_relation'){const vr=validateRelation(project,item.relation);if(!vr.ok)throw new Error(vr.error);project.relations.push(structuredClone(item.relation))}else if(item.kind==='delete_relation'){const r=project.relations.find(r=>r.id===item.relationId);if(r)r.status='deprecated'}else if(item.kind==='create_artifact'){project.artifacts.push(structuredClone(item.artifact));m.set(item.artifact.id,item.artifact)}else throw new Error(`Unsupported change item ${item.kind}`)}return project}
+export function applyChangeSet(project,changeSetId){ensureVersionStore(project);const cs=project.changeSets.find(x=>x.id===changeSetId);if(!cs)throw new Error('ChangeSet not found');if(cs.status!=='open'&&cs.status!=='ready')throw new Error('ChangeSet cannot be applied');if(cs.baseRevision!==project.revision)throw new Error('Project revision conflict');const candidate=cloneProject(project),ccs=candidate.changeSets.find(x=>x.id===changeSetId);applyItems(candidate,ccs,{commit:true});const critical=runValidation(candidate).filter(i=>i.severity==='critical');if(critical.length)throw new Error(`ChangeSet validation failed: ${critical.length} critical issue(s)`);ccs.status='applied';ccs.appliedAt=now();candidate.revision++;Object.keys(project).forEach(k=>delete project[k]);Object.assign(project,candidate);return project}
+export function createReadinessSnapshot(project){ensureVersionStore(project);const r=readiness(project),snap={id:uid(),projectId:project.id,gateId:'implementation',status:r.status,score:r.score,artifactVersionIds:project.artifacts.map(a=>a.currentVersionId),validationIssueIds:r.issues.map(i=>i.id),createdAt:now()};project.readinessSnapshots.push(snap);return snap}
+export function buildImplementationPackage(project,taskIds,{override=false,reason=''}={}){ensureVersionStore(project);const r=readiness(project);if(r.status==='NOT_READY'&&!override)throw new Error('Implementation gate is NOT_READY');const taskSet=new Set(taskIds),selected=new Set(taskIds);for(const id of taskIds)for(const x of semanticReach(project,id))selected.add(x);const arts=project.artifacts.filter(a=>selected.has(a.id));const snap=createReadinessSnapshot(project);return{manifest:{packageVersion:1,projectId:project.id,createdAt:now(),readinessSnapshotId:snap.id,rootTaskIds:[...taskSet],artifactVersions:arts.map(a=>({key:a.key,version:a.version})),readinessOverride:override||undefined,reason:override?reason:undefined},artifacts:arts,relations:project.relations.filter(r=>selected.has(r.fromArtifactId)&&selected.has(r.toArtifactId)),validation:r.issues.filter(i=>i.artifactIds.some(id=>selected.has(id))),codingContext:{objective:arts.filter(a=>a.type==='task').map(a=>a.payload?.objective||a.title),constraints:arts.filter(a=>a.type==='requirement').flatMap(a=>a.payload?.constraints||[]),testConditions:arts.filter(a=>a.type==='task').flatMap(a=>a.payload?.testConditions||[])}}}
+export function makeSampleProject(){const t=now(),A=(id,key,type,title,status,payload={},extra={})=>({id,projectId:'p1',key,type,title,description:payload.statement||'',status,knowledgeState:'known',version:1,revision:1,currentVersionId:`${id}-v1`,tags:[],sourceIds:extra.sourceIds||[],metadata:{},createdAt:t,updatedAt:t,payload});const artifacts=[A('req1','REQ-ORDER-001','requirement','注文を作成できる','approved',{priority:'must',statement:'認証済みユーザーはカート内の商品から注文を作成できる',acceptanceCriteria:['empty cart rejected','inventory shortage rejected','order id generated'],constraints:['authenticated user']},{sourceIds:['src1']}),A('spec1','SPEC-ORDER-CREATE-001','specification','注文作成仕様','approved',{preconditions:['authenticated'],inputs:[{name:'cart'}],processingRules:['validate cart','validate inventory'],failureCases:['CART_EMPTY','INVENTORY_SHORTAGE'],outputs:[{name:'orderId'}]}),A('dom1','DOMAIN-ORDER','domain','Order Domain','approved',{kind:'aggregate',definition:'Order lifecycle',invariants:['totalAmount >= 0']}),A('sys1','SYS-ORDER','system','Order System','approved',{responsibility:'Order lifecycle and consistency',ownedDomainIds:['dom1'],externalDependencies:[]}),A('mod1','MOD-ORDER-VALIDATOR','module','Order Validator','approved',{responsibility:'validate order creation',mustNot:['calculate prices','write DB'],dependencies:[]}),A('if1','IF-ORDER-CREATE-001','interface','POST /orders','approved',{kind:'http',direction:'inbound',operation:'POST',endpoint:'/orders',inputSchema:{type:'object'},outputSchema:{type:'object'},errorSchemas:['CART_EMPTY'],idempotency:{strategy:'Idempotency-Key'},auth:{required:true}}),A('task1','TASK-ORDER-014','task','Implement OrderValidator','draft',{objective:'Implement OrderValidator',implementationTargetIds:['mod1'],referenceArtifactIds:[],dependencies:[],testConditions:['Empty cart','Inventory shortage','Valid order'],definitionOfDone:['Unit tests pass']}),A('src1','SRC-ORDER-001','source','Order workshop notes','approved',{kind:'user_input',excerpt:'Authenticated users create orders from carts.'})];const R=(id,f,to,type)=>({id,projectId:'p1',fromArtifactId:f,toArtifactId:to,type,status:'active',source:'human',createdAt:t,updatedAt:t}),relations=[R('r1','req1','spec1','refines'),R('r2','spec1','dom1','uses'),R('r3','sys1','dom1','owns'),R('r4','sys1','mod1','decomposed_to'),R('r5','mod1','if1','exposes'),R('r6','task1','mod1','implements'),R('r7','spec1','sys1','references')];return ensureVersionStore({id:'p1',name:'EC Order Creation',revision:1,artifacts,relations,changes:[],changeSets:[],readinessSnapshots:[]})}

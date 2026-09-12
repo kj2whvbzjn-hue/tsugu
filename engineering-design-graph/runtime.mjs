@@ -5,6 +5,7 @@ import {PostgresAuditOutboxStore} from './postgres-audit-outbox.mjs';
 import {createPersistentApiService} from './persistent-api.mjs';
 import {createHttpGateway} from './http-server.mjs';
 import {createStructuredLogger,createMetrics,createRateLimiter} from './observability.mjs';
+import {migrationPlan} from './migrate.mjs';
 
 export class PooledProjectRepository{
   constructor(pool){if(!pool?.connect)throw new Error('Postgres pool with connect() is required');this.pool=pool}
@@ -35,9 +36,9 @@ export class PooledOutboxStore{
 
 export async function createEngineeringDesignRuntime({pool,verifyBearer,seed=[],logger=createStructuredLogger(),metrics=createMetrics(),rateLimiter=createRateLimiter()}={}){
   if(!pool?.connect)throw new Error('Postgres pool with connect() is required');if(!verifyBearer)throw new Error('verifyBearer is required');
-  const repository=new PooledProjectRepository(pool),projectAccessRepository=new PooledProjectAccessRepository(pool),unitOfWork=new PostgresEngineeringDesignUnitOfWork(pool);
+  const repository=new PooledProjectRepository(pool),projectAccessRepository=new PooledProjectAccessRepository(pool),unitOfWork=new PostgresEngineeringDesignUnitOfWork(pool),expectedMigrations=await migrationPlan();
   const api=await createPersistentApiService({repository,seed,applicationService:unitOfWork});
-  const readinessCheck=async()=>{const client=await pool.connect();try{await client.query('select 1')}finally{client.release?.()}};
+  const readinessCheck=async()=>{const client=await pool.connect();try{await client.query('select 1');const r=await client.query('select filename,checksum from schema_migrations order by filename'),actual=new Map(r.rows.map(x=>[x.filename,x.checksum]));for(const migration of expectedMigrations)if(actual.get(migration.filename)!==migration.checksum)throw new Error(`Migration not current: ${migration.filename}`)}finally{client.release?.()}};
   const gateway=createHttpGateway({api,verifyBearer,projectAccessRepository,logger,metrics,rateLimiter,readinessCheck});
-  return{repository,projectAccessRepository,outbox:new PooledOutboxStore(pool),unitOfWork,api,gateway,logger,metrics,rateLimiter,readinessCheck};
+  return{repository,projectAccessRepository,outbox:new PooledOutboxStore(pool),unitOfWork,api,gateway,logger,metrics,rateLimiter,readinessCheck,expectedMigrations};
 }

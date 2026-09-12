@@ -37,6 +37,7 @@ spec:
     metadata:
       labels: {app: engineering-design-graph}
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: app
           image: REPLACE_IMAGE

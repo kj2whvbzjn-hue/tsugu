@@ -1,0 +1,23 @@
+name: C04 v3 test anchor diagnostic
+
+on:
+  push:
+    branches:
+      - c04-v3-decision-ui-implementation-20260912
+    paths:
+      - .github/workflows/c04-v3-test-anchor-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          echo '=== v2 ==='
+          grep -nE 'JSONから新規取込|GitHubから再読込|接続解除' tests/c04-ui-usability-v2.e2e.cjs || true
+          echo '=== longtext ==='
+          grep -nE 'JSONから新規取込|GitHubから再読込|接続解除' tests/longtext-fullscreen.e2e.cjs || true

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: engineering-design-graph
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests: {cpu: "50m", memory: "96Mi"}
+            limits: {cpu: "250m", memory: "256Mi"}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: engineering-design-graph
+data:
+  RATE_LIMIT_BACKEND: "memory"
+  RATE_LIMIT_PER_MINUTE: "300"
+  OUTBOX_INTERVAL_MS: "10000"

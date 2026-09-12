@@ -1,61 +1,12 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="referrer" content="no-referrer" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://api.github.com; img-src 'self' data:; style-src 'self'; style-src-attr 'unsafe-hashes' 'sha256-xT6h2iOFCmc+b0YYoNajguP1/DpiqxRRQMAc8B17igQ='; script-src 'self'; base-uri 'none'; form-action 'none'" />
-  <title>継ぐ / TSUGU</title>
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="./styles.css?v=c04-v3" />
-  <link rel="stylesheet" href="./structure-v4.css?v=c04-v4" />
-  <link rel="stylesheet" href="./user-workspace-v6.css?v=c04-v6" />
-  <link rel="stylesheet" href="./longtext-focus.css?v=ux-longtext-v1" />
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://api.github.com; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
+<title>継ぐ / TSUGU — 工程管理</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./workflow.css">
 </head>
-<body>
-  <div id="app"></div>
-  <details id="stage-b-operations-guide">
-    <summary>Stage B 運用ガイド：目的・変更・証拠・未解決・次作業</summary>
-    <section aria-label="Stage B 運用の確認順">
-      <p>同一Projectと固定version/hash/generationで、次の順に正本を確認します。</p>
-      <ol>
-        <li><strong>目的</strong> — Taskのsubject、purpose、対象version/hash。</li>
-        <li><strong>変更</strong> — PlannedChange、ActualChange、reconciliationのbase/headと安定Path ID。</li>
-        <li><strong>証拠</strong> — Check、FINALIZED EvidenceVersion、Assurance/EventのRequirementSnapshot、target、generation。</li>
-        <li><strong>未解決</strong> — Issue、FAIL、UNKNOWN、unmapped change、active Hold reason。古い世代のPASSは現在保証にしません。</li>
-        <li><strong>次作業</strong> — Task state、TaskDependency、必要Approval、repair Task、次Taskを確認します。</li>
-      </ol>
-      <p><a href="./stage-b-mvp-scenarios.json">B-07 MVP受入10シナリオ</a></p>
-    </section>
-  </details>
-  <script src="./core-reference.js?v=core-vnext-a02"></script>
-  <script src="./core-architecture.js?v=core-vnext-a03"></script>
-  <script src="./core-changeset.js?v=core-vnext-a04"></script>
-  <script src="./core-box.js?v=core-vnext-b01"></script>
-  <script src="./core-box-changeset.js?v=core-vnext-b01"></script>
-  <script src="./core-rule-test.js?v=core-vnext-b02"></script>
-  <script src="./core-rule-test-changeset.js?v=core-vnext-b02"></script>
-  <script src="./core-governance.js?v=core-vnext-b03"></script>
-  <script src="./core-governance-changeset.js?v=core-vnext-b03"></script>
-  <script src="./core-check-evidence.js?v=core-vnext-b04"></script>
-  <script src="./core-evidence-storage.js?v=core-vnext-b04"></script>
-  <script src="./core-check-evidence-changeset.js?v=core-vnext-b04"></script>
-  <script src="./core-planned-actual-change.js?v=core-vnext-b05"></script>
-  <script src="./core-git-diff.js?v=core-vnext-b05"></script>
-  <script src="./core-planned-actual-change-changeset.js?v=core-vnext-b05"></script>
-  <script src="./core-assurance-event.js?v=core-vnext-b06"></script>
-  <script src="./core-task-execution.js?v=core-vnext-b06"></script>
-  <script src="./core-assurance-event-changeset.js?v=core-vnext-b06"></script>
-  <script src="./core-impact-graph.js?v=core-vnext-c01"></script>
-  <script src="./core-architecture-health.js?v=core-vnext-c02"></script>
-  <script src="./core-sync.js?v=core-vnext-a05"></script>
-  <script src="./core-sync-storage.js?v=core-vnext-a05"></script>
-  <script src="./core-sync-reconcile.js?v=core-vnext-a05"></script>
-  <script src="./core-sync-recovery.js?v=core-vnext-c03"></script>
-  <script src="./core-sync-admin.js?v=core-vnext-a05"></script>
-  <script src="./core-guard.js?v=core-vnext-a01"></script>
-  <script src="./longtext-focus.js?v=ux-longtext-v1"></script>
-  <script src="./user-workspace-v6.js?v=c04-v6"></script>
-  <script type="module" src="./app.js?v=c04-v6"></script>
-</body>
+<body><div id="app"></div><noscript>TSUGUの操作にはJavaScriptが必要です。</noscript><script type="module" src="./workflow-app.mjs"></script></body>
 </html>

@@ -1,31 +1,25 @@
-# 継ぐ / TSUGU：AI連携
+# TSUGU Workflow：AI引継ぎ
 
-TSUGUは単一のアプリケーションとして運用します。現在の正規AI連携は **AI引き継ぎテキスト + 返却JSON** です。
+案件の「引継ぎ」から完全案件JSON、project ID、instance ID、base revision、Git blob SHA、次の実行可能Taskを取得する。Taskにない作業を推測して実施しない。コードの現在HEADは別途確認する。
 
-## 実装・参照ツール
-
-AIの実装作業では、GitHub接続ツールで `kj2whvbzjn-hue/tsugu` の `main` とcommit/diff/Actionsを確認し、ローカル実行環境で構文検査・テスト・生成を行い、Web/Browserで公式仕様と公開TSUGUを実測します。ChatGPT Sites、旧MCP、旧サーバーAPIは参照・実行経路にしません。
-
-共通参照は `docs/TSUGU_PROJECT_REFERENCE.md`、Core vNextは `docs/TSUGU_CORE_VNEXT_PLAN.md` と `docs/TSUGU_CORE_VNEXT_WBS.md` を使用します。
-
-## AIへ渡す
-
-案件画面の「AI引き継ぎ」から、案件ID、baseRevision、目的、方針、Git基準、項目を含むテキストを生成します。AIは作業前にGitHub `main` の現在HEADを別途確認し、引き継ぎ中の古いSHAを現在値として流用しません。
-
-## TSUGUへ戻す
+返却形式：
 
 ```json
 {
-  "projectId": "TSUGU UUID",
-  "baseRevision": 1,
-  "summary": "変更概要",
-  "changes": {},
-  "upserts": []
+  "project_id": "案件のworkspace.id",
+  "instance_id": "案件のauthority.instance_id",
+  "base_revision": 1,
+  "summary": "今回の結果",
+  "upserts": [
+    {"collection": "tasks", "record": {"id": "既存または新しいID", "title": "完全Recordの例（省略）"}}
+  ]
 }
 ```
 
-TSUGUは `projectId` と `baseRevision` を現在案件と照合し、許可された変更だけを編集内容へ反映します。反映だけでは保存されず、利用者が「GitHubへ保存」を実行した時点で新revisionとして確定します。
+上記Recordは説明用で、実入力には全必須fieldが必要。Taskのapprovalは返却に含めず、既存承認を保持する。新TaskはTodo。既存Taskの状態変更、Workflow／Lifecycle／Authority変更、承認、Waived、実施済みCheck変更は拒否する。正式仕様の承認は人が専用操作で行う。
 
-削除、工程移行、実装承認、完了承認はAI返却から直接実行しません。
+配列をID単位で統合した最終候補全体を検証し、差分previewを見てから反映する。反映とGit保存は別操作。省略したRecordを削除しない。未知collectionや二重ID、古いrevision、別instanceを拒否する。
 
-旧MCPルートや提案Inboxは撤去対象であり、フォールバックとして残しません。将来AI接続方式を拡張する場合も、統一TSUGUの同じ案件モデル、競合検査、承認規則へ直接統合します。
+新しいCheckには実施コマンド・結果・証拠・実施時刻を記載する。Failedのstatusを変えず、新しいPassedのresolves_check_idsで解決関係を持つ。異なる対象／GateのPASSは流用しない。
+
+旧schemaVersion 1、旧items/core、旧返却upsertsは対応しない。

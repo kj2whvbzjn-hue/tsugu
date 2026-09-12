@@ -1,30 +1,19 @@
-# TSUGU deployment
+# TSUGU Workflow deployment
 
-`main` が唯一のTSUGU正本で、GitHub Pagesはその配信先です。
+現行のGitHub Pages方式を維持する。Sites、D1/R2、Workerなどの新しいhostingは追加しない。
 
-## 構成
-
-- コード: Public `kj2whvbzjn-hue/tsugu` / `main`
-- 公開: `https://kj2whvbzjn-hue.github.io/tsugu/`
-- 案件保存: Private `kj2whvbzjn-hue/tsugu-data` / `main`
-- 案件: `data/projects/<projectId>.json`
+- Source: `kj2whvbzjn-hue/tsugu` / `main`
+- Site: `https://kj2whvbzjn-hue.github.io/tsugu/`
+- Data: Private `kj2whvbzjn-hue/tsugu-data` / `main`
+- Data path: `data/workflow-projects/<workspace.id>.json`
+- Artifact builder: `.github/scripts/build-pages-site.sh`
+- Acceptance: `.github/workflows/workflow-acceptance.yml`
 - Deploy: `.github/workflows/pages.yml`
-- E2E: `.github/workflows/e2e.yml`
 
-Cloudflare D1/R2、ChatGPT Sites、Worker、Next/vinextは現行デプロイ経路ではありません。
+Pages artifactはindex.html、favicon.svg、workflow.css、workflow-domain.mjs、workflow-git.mjs、workflow-app.mjsの6ファイルだけで構成する。gzip/Base64の旧app、旧Core、旧UI scriptsを含めない。
 
-## データと認証
+`main`更新または手動Deployは、Workflow Acceptance（domain・保存競合・参照検査、成果物構築、UI通し検証）に合格してから配置する。旧画面向けE2Eは新画面の合格条件に流用しない。
 
-ブラウザからGitHub APIへ直接接続します。Fine-grained PATはタブのメモリ内だけで保持します。保存先はPrivate `tsugu-data` とし、推奨権限は `Contents: Read and write` です。
+新コードは旧 `data/projects/` を操作しない。新データへの自動移行・旧データ削除はない。旧データを必要とする場合は出典を確認して新案件へ明示登録し、承認は新対象で取得する。
 
-保存直前に対象JSONを再取得し、blob SHAと案件revisionを照合します。不一致の場合は上書きを停止します。
-
-## Deploy検証
-
-`Deploy TSUGU` は `static/` から公開artifactを構築し、JavaScript構文検査後にGitHub Pagesへ配置します。成功runの対象commitを確認してDeployment証拠とします。
-
-## E2E
-
-`TSUGU E2E` は公開URLをChromiumで操作し、GitHub接続、新規案件作成、保存、JSON再取得を確認します。テスト用データは本番Private `tsugu-data` を使わず、テストrun専用の一時Git branchを作成して終了時に削除します。
-
-旧コードや旧ホスティングを復旧用fallbackとして維持しません。障害時はGit履歴とActions結果から原因を確認し、現行mainへ修正commitを追加します。
+公開後に確認するもの：対象commit、Actions deployment成功、ブラウザで新工程画面表示、Privateデータ接続、保存・再読込。ローカル／CIのGitHub fixtureテスト合格を、本番Privateリポジトリへの書込実測と報告しない。

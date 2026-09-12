@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: engineering-design-graph
+  labels: {app: engineering-design-graph}
+data:
+  HOST: "0.0.0.0"
+  PORT: "4180"
+  PGPOOL_MAX: "10"
+  RATE_LIMIT_PER_MINUTE: "120"
+  OUTBOX_INTERVAL_MS: "5000"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: engineering-design-graph-secrets
+stringData:
+  DATABASE_URL: "REPLACE_AT_DEPLOY_TIME"
+  OIDC_ISSUER: "REPLACE_AT_DEPLOY_TIME"
+  OIDC_AUDIENCE: "REPLACE_AT_DEPLOY_TIME"
+  OIDC_JWKS_URL: "REPLACE_AT_DEPLOY_TIME"
+  BROKER_URL: ""
+  BROKER_SECRET: ""
+  OTLP_ENDPOINT: ""
+  OTLP_AUTHORIZATION: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: engineering-design-graph
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: engineering-design-graph}
+  template:
+    metadata:
+      labels: {app: engineering-design-graph}
+    spec:
+      containers:
+        - name: app
+          image: REPLACE_IMAGE
+          ports:
+            - containerPort: 4180
+          envFrom:
+            - configMapRef: {name: engineering-design-graph}
+            - secretRef: {name: engineering-design-graph-secrets}
+          readinessProbe:
+            httpGet: {path: /health/ready, port: 4180}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health/live, port: 4180}
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            requests: {cpu: "100m", memory: "128Mi"}
+            limits: {cpu: "500m", memory: "512Mi"}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: engineering-design-graph
+spec:
+  selector: {app: engineering-design-graph}
+  ports:
+    - port: 80
+      targetPort: 4180

@@ -6,6 +6,7 @@ on:
       - c04-v3-decision-ui-implementation-20260912
     paths:
       - '.github/workflows/c04-v3-apply-ui-patch.yml'
+      - 'scripts/c04-v3-patch.py'
   workflow_dispatch:
 
 permissions:
@@ -20,7 +21,26 @@ jobs:
           ref: c04-v3-decision-ui-implementation-20260912
           fetch-depth: 1
       - name: Apply patch
-        run: python3 scripts/c04-v3-patch.py
+        run: |
+          set +e
+          python3 scripts/c04-v3-patch.py > /tmp/c04-patch.out 2> /tmp/c04-patch.err
+          rc=$?
+          set -e
+          cat /tmp/c04-patch.out
+          cat /tmp/c04-patch.err >&2
+          if [ "$rc" -ne 0 ] && ! grep -qx 'app.js version anchor not replaced' /tmp/c04-patch.err; then
+            exit "$rc"
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('static/index.html')
+          s=p.read_text()
+          n=re.sub(r'app\.js\?v=[^"\x27]+','app.js?v=c04-v3',s,count=1)
+          if n==s and 'app.js?v=c04-v3' not in s:
+              raise SystemExit('index app.js anchor missing')
+          p.write_text(n)
+          PY
       - name: Verify generated UI
         run: |
           set -euo pipefail

@@ -1,0 +1,40 @@
+name: C04 v3 fix duplicate relation helper
+
+on:
+  push:
+    branches:
+      - c04-v3-decision-ui-implementation-20260912
+    paths:
+      - '.github/workflows/c04-v3-fix-duplicate-relation.yml'
+      - 'tools/c04_v3_dedupe_relation.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Remove only identical duplicate helper
+        run: python tools/c04_v3_dedupe_relation.py
+      - name: Verify fixed bundle
+        run: |
+          set -euo pipefail
+          base64 --decode static/app.js.gz.b64 | gzip --decompress > /tmp/c04-v3-fixed.js
+          node --check /tmp/c04-v3-fixed.js
+          test "$(grep -o 'function relationResolutionHtml(' /tmp/c04-v3-fixed.js | wc -l)" -eq 1
+          grep -q 'workspaceMenuBtn' /tmp/c04-v3-fixed.js
+          grep -q 'data-related-open' /tmp/c04-v3-fixed.js
+          grep -q 'relation-breadcrumb' /tmp/c04-v3-fixed.js
+          grep -q 'aria-autocomplete="list"' /tmp/c04-v3-fixed.js
+      - name: Commit fixed candidate
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/app.js.gz.b64
+          git commit -m "fix: remove duplicate relation helper declaration"
+          git push origin HEAD:c04-v3-decision-ui-implementation-20260912

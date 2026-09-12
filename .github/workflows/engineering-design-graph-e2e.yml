@@ -8,6 +8,7 @@ on:
       - 'tests/engineering-design*.cjs'
       - 'package.json'
       - '.github/workflows/engineering-design-graph-e2e.yml'
+      - '.github/workflows/engineering-design-graph-release.yml'
   push:
     branches:
       - 'feature/engineering-design-graph-mvp'
@@ -17,6 +18,7 @@ on:
       - 'tests/engineering-design*.cjs'
       - 'package.json'
       - '.github/workflows/engineering-design-graph-e2e.yml'
+      - '.github/workflows/engineering-design-graph-release.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -70,6 +72,12 @@ jobs:
           docker build -f engineering-design-graph/Dockerfile -t engineering-design-graph:ci .
           grep -q '/health/ready' engineering-design-graph/ops/k8s.yaml
           grep -q '/health/live' engineering-design-graph/ops/k8s.yaml
+          grep -q 'RATE_LIMIT_BACKEND: "postgres"' engineering-design-graph/ops/k8s.yaml
+          grep -q 'RATE_LIMIT_BACKEND: "memory"' engineering-design-graph/ops/environments/dev.patch.yaml
+          grep -q 'RATE_LIMIT_BACKEND: "postgres"' engineering-design-graph/ops/environments/prod.patch.yaml
+          grep -q 'EngineeringDesignGraphOutboxPublishFailures' engineering-design-graph/ops/alerts.example.yaml
+          grep -q 'workflow_dispatch:' .github/workflows/engineering-design-graph-release.yml
+          grep -q 'inputs.publish' .github/workflows/engineering-design-graph-release.yml
           grep -q 'REPLACE_AT_DEPLOY_TIME' engineering-design-graph/ops/k8s.yaml
           ! grep -Eq '(postgres(ql)?://[^ ]+:[^ ]+@|BEGIN PRIVATE KEY|AKIA[0-9A-Z]{16})' engineering-design-graph/ops/k8s.yaml
       - name: Install PostgreSQL integration dependency

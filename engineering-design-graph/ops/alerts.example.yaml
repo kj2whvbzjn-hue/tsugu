@@ -1,0 +1,29 @@
+# Example thresholds only. Tune against production SLOs and traffic before enabling.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: engineering-design-graph-example
+spec:
+  groups:
+    - name: engineering-design-graph
+      rules:
+        - alert: EngineeringDesignGraphHighHttp5xxRatio
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_requests_total[5m])), 0.001)
+            > 0.05
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Engineering Design Graph HTTP 5xx ratio is above the example threshold"
+            description: "Example threshold only. Replace with the production SLO/error-budget policy before enabling."
+        - alert: EngineeringDesignGraphOutboxPublishFailures
+          expr: increase(outbox_publish_failed_total[10m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Engineering Design Graph outbox publish failures detected"
+            description: "Inspect broker connectivity, retry state, and dead-letter events. Threshold is an example until production policy is defined."

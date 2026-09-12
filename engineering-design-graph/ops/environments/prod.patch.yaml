@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: engineering-design-graph
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests: {cpu: "200m", memory: "256Mi"}
+            limits: {cpu: "1", memory: "1Gi"}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: engineering-design-graph
+data:
+  RATE_LIMIT_BACKEND: "postgres"
+  RATE_LIMIT_PER_MINUTE: "120"
+  OUTBOX_INTERVAL_MS: "5000"

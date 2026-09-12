@@ -1,8 +1,9 @@
 FROM node:24-alpine
-WORKDIR /app
+WORKDIR /app/engineering-design-graph
 ENV NODE_ENV=production
-COPY engineering-design-graph ./engineering-design-graph
-RUN npm init -y >/dev/null 2>&1 && npm install --omit=dev --no-package-lock pg@8
+COPY engineering-design-graph/package.json ./package.json
+RUN npm install --omit=dev --no-package-lock
+COPY engineering-design-graph ./
 USER node
 EXPOSE 4180
-CMD ["node","engineering-design-graph/server-entry.mjs"]
+CMD ["npm","start"]

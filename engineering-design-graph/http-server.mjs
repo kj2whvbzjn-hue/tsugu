@@ -20,12 +20,16 @@ function resolveProjectId(api,path){
   return null;
 }
 
-export function createHttpGateway({api=createApiService(),verifyBearer,auditOutbox=createAuditOutboxStore(),idempotency=createIdempotencyStore(),projectAccessRepository=null,logger=createStructuredLogger({sink:null}),metrics=createMetrics(),rateLimiter=createRateLimiter()}={}){
+export function createHttpGateway({api=createApiService(),verifyBearer,auditOutbox=createAuditOutboxStore(),idempotency=createIdempotencyStore(),projectAccessRepository=null,logger=createStructuredLogger({sink:null}),metrics=createMetrics(),rateLimiter=createRateLimiter(),readinessCheck=async()=>true}={}){
   if(!verifyBearer)throw new Error('verifyBearer is required');
   const handler=async(req,res)=>{
     const started=Date.now(),requestId=req.headers['x-request-id']||randomUUID(),url=new URL(req.url,'http://local'),method=(req.method||'GET').toUpperCase(),route=routeKey(url.pathname);
     let principal=null,body={},projectId=null,status=500;
     try{
+      if(method==='GET'&&url.pathname==='/health/live'){status=200;send(res,status,{'x-request-id':requestId},{status:'ok'});return}
+      if(method==='GET'&&url.pathname==='/health/ready'){
+        try{await readinessCheck();status=200;send(res,status,{'x-request-id':requestId},{status:'ready'})}catch(error){status=503;send(res,status,{'x-request-id':requestId},{status:'not_ready',code:'DEPENDENCY_UNAVAILABLE'})}return;
+      }
       principal=await verifyBearer(req.headers.authorization);
       const rate=rateLimiter.check(principal.userId||'anonymous');if(!rate.allowed)throw Object.assign(new Error('Rate limit exceeded'),{status:429,code:'RATE_LIMITED',rate});
       const permission=permissionForRequest(method,url.pathname);projectId=resolveProjectId(api,url.pathname);

@@ -37,6 +37,7 @@ export async function createEngineeringDesignRuntime({pool,verifyBearer,seed=[],
   if(!pool?.connect)throw new Error('Postgres pool with connect() is required');if(!verifyBearer)throw new Error('verifyBearer is required');
   const repository=new PooledProjectRepository(pool),projectAccessRepository=new PooledProjectAccessRepository(pool),unitOfWork=new PostgresEngineeringDesignUnitOfWork(pool);
   const api=await createPersistentApiService({repository,seed,applicationService:unitOfWork});
-  const gateway=createHttpGateway({api,verifyBearer,projectAccessRepository,logger,metrics,rateLimiter});
-  return{repository,projectAccessRepository,outbox:new PooledOutboxStore(pool),unitOfWork,api,gateway,logger,metrics,rateLimiter};
+  const readinessCheck=async()=>{const client=await pool.connect();try{await client.query('select 1')}finally{client.release?.()}};
+  const gateway=createHttpGateway({api,verifyBearer,projectAccessRepository,logger,metrics,rateLimiter,readinessCheck});
+  return{repository,projectAccessRepository,outbox:new PooledOutboxStore(pool),unitOfWork,api,gateway,logger,metrics,rateLimiter,readinessCheck};
 }

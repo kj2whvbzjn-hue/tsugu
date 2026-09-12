@@ -21,7 +21,7 @@ export function createHttpGateway({api=createApiService(),verifyBearer,auditOutb
       if(idem?.hit){const cached=idem.response;await auditOutbox.record({principal,method,path:url.pathname,status:cached.status,requestId,body,replayed:true});send(res,cached.status,{'x-request-id':requestId,'idempotency-replayed':'true',...cached.headers},cached.body);return}
       const response=await api.handle({method,url:url.pathname+url.search,body,headers:{...req.headers,'x-user-id':principal.userId,'x-request-id':requestId}});
       if(idem&&!idem.hit&&req.headers['idempotency-key']&&response.status>=200&&response.status<300)idempotency.store({scope:idem.scope,fingerprint:idem.fingerprint,response});
-      await auditOutbox.record({principal,method,path:url.pathname,status:response.status,requestId,body});
+      if(response.headers?.['x-transactional-audit']!=='true')await auditOutbox.record({principal,method,path:url.pathname,status:response.status,requestId,body});
       send(res,response.status,{'x-request-id':requestId,...response.headers},response.body);
     }catch(err){
       const status=err.status||500,code=err.code||'REQUEST_FAILED',problem={type:`https://errors.local/${String(code).toLowerCase().replaceAll('_','-')}`,title:err.message,status,code,traceId:requestId,errors:[]};

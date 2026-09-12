@@ -17,9 +17,13 @@ export function createHttpGateway({api=createApiService(),verifyBearer,auditOutb
       authorize(principal,permissionForRequest(method,url.pathname));
       if(method!=='GET'&&method!=='HEAD')body=await readJson(req);
       const response=await api.handle({method,url:url.pathname+url.search,body,headers:{...req.headers,'x-user-id':principal.userId,'x-request-id':requestId}});
-      auditOutbox.record({principal,method,path:url.pathname,status:response.status,requestId,body});
+      await auditOutbox.record({principal,method,path:url.pathname,status:response.status,requestId,body});
       send(res,response.status,{'x-request-id':requestId,...response.headers},response.body);
-    }catch(err){const status=err.status||400,code=err.code||'REQUEST_FAILED',problem={type:`https://errors.local/${String(code).toLowerCase().replaceAll('_','-')}`,title:err.message,status,code,traceId:requestId,errors:[]};auditOutbox.record({principal,method,path:url.pathname,status,requestId,body});send(res,status,{'x-request-id':requestId},problem)}
+    }catch(err){
+      const status=err.status||500,code=err.code||'REQUEST_FAILED',problem={type:`https://errors.local/${String(code).toLowerCase().replaceAll('_','-')}`,title:err.message,status,code,traceId:requestId,errors:[]};
+      try{await auditOutbox.record({principal,method,path:url.pathname,status,requestId,body})}catch{}
+      send(res,status,{'x-request-id':requestId},problem);
+    }
   };
   return {handler,api,auditOutbox,listen(port=4180,host='127.0.0.1'){const server=http.createServer(handler);return new Promise(resolve=>server.listen(port,host,()=>resolve(server)))}};
 }

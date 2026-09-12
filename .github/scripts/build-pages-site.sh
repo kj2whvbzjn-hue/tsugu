@@ -5,7 +5,7 @@ site_dir="${1:-_site}"
 case "$site_dir" in _site|_site-*) ;; *) echo 'output must be _site or _site-*' >&2; exit 1 ;; esac
 rm -rf -- "$site_dir"
 mkdir -p "$site_dir"
-for asset in index.html workflow.css favicon.svg workflow-domain.mjs workflow-git.mjs workflow-app.mjs workflow-import.mjs manual.html project-import-example.json; do
+for asset in index.html workflow.css workflow-detail-nav.css favicon.svg workflow-domain.mjs workflow-git.mjs workflow-app.mjs workflow-detail-nav.mjs workflow-import.mjs manual.html project-import-example.json; do
   test -f "static/$asset"
   cp "static/$asset" "$site_dir/$asset"
 done

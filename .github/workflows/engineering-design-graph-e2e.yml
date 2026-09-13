@@ -71,6 +71,7 @@ jobs:
       - name: Validate container and deployment manifests
         run: |
           docker build -f engineering-design-graph/Dockerfile -t engineering-design-graph:ci .
+          test "$(docker inspect -f '{{.Config.User}}' engineering-design-graph:ci)" = "node"
           grep -q '/health/ready' engineering-design-graph/ops/k8s.yaml
           grep -q '/health/live' engineering-design-graph/ops/k8s.yaml
           grep -q 'terminationGracePeriodSeconds: 30' engineering-design-graph/ops/k8s.yaml
@@ -83,6 +84,10 @@ jobs:
           grep -q 'topologySpreadConstraints:' engineering-design-graph/ops/k8s.yaml
           grep -q 'kind: PodDisruptionBudget' engineering-design-graph/ops/pdb.yaml
           grep -q 'minAvailable: 1' engineering-design-graph/ops/pdb.yaml
+          grep -q 'HTTP_BODY_LIMIT_BYTES: "1048576"' engineering-design-graph/ops/k8s.yaml
+          grep -q 'HTTP_REQUEST_TIMEOUT_MS: "30000"' engineering-design-graph/ops/k8s.yaml
+          grep -q 'HTTP_HEADERS_TIMEOUT_MS: "15000"' engineering-design-graph/ops/k8s.yaml
+          grep -q 'HTTP_KEEP_ALIVE_TIMEOUT_MS: "5000"' engineering-design-graph/ops/k8s.yaml
           grep -q 'RATE_LIMIT_BACKEND: "postgres"' engineering-design-graph/ops/k8s.yaml
           grep -q 'RATE_LIMIT_BACKEND: "memory"' engineering-design-graph/ops/environments/dev.patch.yaml
           grep -q 'RATE_LIMIT_BACKEND: "postgres"' engineering-design-graph/ops/environments/prod.patch.yaml

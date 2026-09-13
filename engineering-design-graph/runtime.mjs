@@ -43,11 +43,11 @@ export class PooledHttpAuditOutboxStore{
   async markPublished(id){const client=await this.pool.connect();try{return await new HttpPostgresAuditOutboxStore(client).markPublished(id)}finally{client.release?.()}}
 }
 
-export async function createEngineeringDesignRuntime({pool,verifyBearer,seed=[],logger=createStructuredLogger(),metrics=createMetrics(),rateLimiter=createRateLimiter(),idempotency=null,auditOutbox=null}={}){
+export async function createEngineeringDesignRuntime({pool,verifyBearer,seed=[],logger=createStructuredLogger(),metrics=createMetrics(),rateLimiter=createRateLimiter(),idempotency=null,auditOutbox=null,httpOptions={}}={}){
   if(!pool?.connect||!pool?.query)throw new Error('Postgres pool with connect() and query() is required');if(!verifyBearer)throw new Error('verifyBearer is required');
   const repository=new PooledProjectRepository(pool),projectAccessRepository=new PooledProjectAccessRepository(pool),unitOfWork=new PostgresEngineeringDesignUnitOfWork(pool),expectedMigrations=await migrationPlan(),idempotencyStore=idempotency||new PostgresIdempotencyStore(pool),httpAuditOutbox=auditOutbox||new PooledHttpAuditOutboxStore(pool);
   const api=await createPersistentApiService({repository,seed,applicationService:unitOfWork});
   const readinessCheck=async()=>{const client=await pool.connect();try{await client.query('select 1');const r=await client.query('select filename,checksum from schema_migrations order by filename'),actual=new Map(r.rows.map(x=>[x.filename,x.checksum]));for(const migration of expectedMigrations)if(actual.get(migration.filename)!==migration.checksum)throw new Error(`Migration not current: ${migration.filename}`)}finally{client.release?.()}};
-  const gateway=createHttpGateway({api,verifyBearer,projectAccessRepository,logger,metrics,rateLimiter,readinessCheck,idempotency:idempotencyStore,auditOutbox:httpAuditOutbox});
-  return{repository,projectAccessRepository,outbox:new PooledOutboxStore(pool),httpAuditOutbox,unitOfWork,api,gateway,logger,metrics,rateLimiter,idempotency:idempotencyStore,readinessCheck,expectedMigrations};
+  const gateway=createHttpGateway({api,verifyBearer,projectAccessRepository,logger,metrics,rateLimiter,readinessCheck,idempotency:idempotencyStore,auditOutbox:httpAuditOutbox,httpOptions});
+  return{repository,projectAccessRepository,outbox:new PooledOutboxStore(pool),httpAuditOutbox,unitOfWork,api,gateway,logger,metrics,rateLimiter,idempotency:idempotencyStore,readinessCheck,expectedMigrations,httpOptions:gateway.httpOptions};
 }

@@ -37,15 +37,37 @@ spec:
     metadata:
       labels: {app: engineering-design-graph}
     spec:
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {app: engineering-design-graph}
       containers:
         - name: app
           image: REPLACE_IMAGE
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 4180
           envFrom:
             - configMapRef: {name: engineering-design-graph}
             - secretRef: {name: engineering-design-graph-secrets}
+          startupProbe:
+            httpGet: {path: /health/live, port: 4180}
+            failureThreshold: 30
+            periodSeconds: 2
           readinessProbe:
             httpGet: {path: /health/ready, port: 4180}
             initialDelaySeconds: 5

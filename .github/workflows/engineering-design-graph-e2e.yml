@@ -74,6 +74,15 @@ jobs:
           grep -q '/health/ready' engineering-design-graph/ops/k8s.yaml
           grep -q '/health/live' engineering-design-graph/ops/k8s.yaml
           grep -q 'terminationGracePeriodSeconds: 30' engineering-design-graph/ops/k8s.yaml
+          grep -q 'automountServiceAccountToken: false' engineering-design-graph/ops/k8s.yaml
+          grep -q 'runAsNonRoot: true' engineering-design-graph/ops/k8s.yaml
+          grep -q 'readOnlyRootFilesystem: true' engineering-design-graph/ops/k8s.yaml
+          grep -q 'allowPrivilegeEscalation: false' engineering-design-graph/ops/k8s.yaml
+          grep -q 'drop: \["ALL"\]' engineering-design-graph/ops/k8s.yaml
+          grep -q 'seccompProfile: {type: RuntimeDefault}' engineering-design-graph/ops/k8s.yaml
+          grep -q 'topologySpreadConstraints:' engineering-design-graph/ops/k8s.yaml
+          grep -q 'kind: PodDisruptionBudget' engineering-design-graph/ops/pdb.yaml
+          grep -q 'minAvailable: 1' engineering-design-graph/ops/pdb.yaml
           grep -q 'RATE_LIMIT_BACKEND: "postgres"' engineering-design-graph/ops/k8s.yaml
           grep -q 'RATE_LIMIT_BACKEND: "memory"' engineering-design-graph/ops/environments/dev.patch.yaml
           grep -q 'RATE_LIMIT_BACKEND: "postgres"' engineering-design-graph/ops/environments/prod.patch.yaml

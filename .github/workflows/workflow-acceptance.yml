@@ -17,8 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Domain, approval, import and Git concurrency tests
-        run: node --test tests/workflow.test.mjs
+      - name: Domain, approval, import and engineering design tests
+        run: npm test
       - name: Build the deployed artifact and reject old runtime dependencies
         run: |
           bash .github/scripts/build-pages-site.sh _site

@@ -1,0 +1,13 @@
+{
+  "name": "tsugu-engineering-design-graph",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server-entry.mjs",
+    "migrate": "node migrate.mjs"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
+  }
+}

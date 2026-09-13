@@ -1,0 +1,7 @@
+export class OutboxScheduler{
+  constructor({worker,intervalMs=5000,logger=null,metrics=null}={}){if(!worker?.runOnce)throw new Error('Outbox worker is required');if(!Number.isInteger(intervalMs)||intervalMs<100)throw new Error('intervalMs must be >= 100');this.worker=worker;this.intervalMs=intervalMs;this.logger=logger;this.metrics=metrics;this.timer=null;this.running=false;this.lastResult=null;this.lastError=null}
+  record(result){this.metrics?.inc?.('outbox_runs_total',{},1);this.metrics?.inc?.('outbox_fetched_total',{},Number(result?.fetched||0));this.metrics?.inc?.('outbox_published_total',{},Number(result?.published||0));this.metrics?.inc?.('outbox_publish_failed_total',{},Number(result?.failed||0))}
+  async tick(){if(this.running)return{skipped:true};this.running=true;try{const result=await this.worker.runOnce();this.lastResult=result;this.lastError=null;this.record(result);this.logger?.info?.('outbox.tick',{...result});return result}catch(error){this.lastError=error;const result={fetched:0,published:0,failed:1,errors:[{message:String(error?.message||error)}]};this.record(result);this.logger?.error?.('outbox.tick',{message:String(error?.message||error)});return result}finally{this.running=false}}
+  start(){if(this.timer)return this;this.timer=setInterval(()=>{void this.tick()},this.intervalMs);this.timer.unref?.();return this}
+  async stop(){if(this.timer){clearInterval(this.timer);this.timer=null}while(this.running)await new Promise(r=>setTimeout(r,10));return this}
+}

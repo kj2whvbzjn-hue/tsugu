@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: engineering-design-graph-migrate
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {app: engineering-design-graph, component: migration}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: REPLACE_IMAGE
+          command: ["npm","run","migrate"]
+          envFrom:
+            - configMapRef: {name: engineering-design-graph}
+            - secretRef: {name: engineering-design-graph-secrets}

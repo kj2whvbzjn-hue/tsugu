@@ -57,8 +57,8 @@ jobs:
         run: |
           node engineering-design-graph/migrate.mjs
           node engineering-design-graph/migrate.mjs
-          test "$(psql -Atc "select count(*) from schema_migrations")" = "5"
-          test "$(psql -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('schema_migrations','projects','artifacts','artifact_versions','relations','change_sets','change_set_items','validation_issues','ai_candidates','reviews','readiness_snapshots','audit_logs','outbox_events','project_members','project_policies','rate_limit_buckets')")" = "16"
+          test "$(psql -Atc "select count(*) from schema_migrations")" = "6"
+          test "$(psql -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('schema_migrations','projects','artifacts','artifact_versions','relations','change_sets','change_set_items','validation_issues','ai_candidates','reviews','readiness_snapshots','audit_logs','outbox_events','project_members','project_policies','rate_limit_buckets','idempotency_records')")" = "17"
           PROJECT_ID="$(psql -qAtc "with inserted as (insert into projects(name) values ('CI migration smoke') returning id) select id from inserted")"
           psql -v ON_ERROR_STOP=1 -c "insert into project_members(project_id,user_subject,role) values ('$PROJECT_ID','oidc|user@example.test','architect');"
           psql -v ON_ERROR_STOP=1 -c "insert into project_policies(project_id,policy,updated_by) values ('$PROJECT_ID','{\"aiEnabled\":true}'::jsonb,'oidc|user@example.test');"
@@ -95,8 +95,8 @@ jobs:
           pg_restore --no-owner --no-acl --dbname=edg_restore /tmp/edg.dump
           test "$(psql -d edg_restore -Atc 'select count(*) from projects')" = "$ORIGINAL_PROJECTS"
           test "$(psql -d edg_restore -Atc 'select count(*) from artifact_versions')" = "$ORIGINAL_VERSIONS"
-          test "$(psql -d edg_restore -Atc "select count(*) from schema_migrations")" = "5"
-          test "$(psql -d edg_restore -Atc "select count(*) from information_schema.tables where table_schema='public'")" -ge 16
+          test "$(psql -d edg_restore -Atc "select count(*) from schema_migrations")" = "6"
+          test "$(psql -d edg_restore -Atc "select count(*) from information_schema.tables where table_schema='public'")" -ge 17
       - name: Install Playwright Chromium
         run: |
           npm install --no-save --package-lock=false playwright@1.55.0
